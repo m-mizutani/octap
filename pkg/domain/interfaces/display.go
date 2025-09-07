@@ -11,3 +11,10 @@ type Display interface {
 	ShowWaiting(commitSHA, repoName string)
 	Clear()
 }
+
+// ExtendedDisplay provides additional display methods
+type ExtendedDisplay interface {
+	Display
+	ShowCountdown(remaining time.Duration)
+	ShowFinalSummary()
+}

@@ -16,7 +16,7 @@ type Config struct {
 
 func NewConfig() *Config {
 	return &Config{
-		Interval: 15 * time.Second,
+		Interval: 5 * time.Second,
 	}
 }
 
@@ -40,7 +40,7 @@ func DefineFlags() []cli.Flag {
 			Name:    "interval",
 			Aliases: []string{"i"},
 			Usage:   "Polling interval",
-			Value:   15 * time.Second,
+			Value:   5 * time.Second,
 		},
 		&cli.StringFlag{
 			Name:  "config",

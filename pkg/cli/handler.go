@@ -75,7 +75,7 @@ func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 		notifier = usecase.NewSoundNotifier(logger)
 	}
 
-	display := NewInlineDisplayManager(repo.FullName(), commitSHA)
+	display := NewProgressDisplayManager(repo.FullName(), commitSHA)
 
 	monitor := usecase.NewMonitorUseCase(usecase.MonitorUseCaseOptions{
 		GitHub:   githubService,
@@ -90,30 +90,11 @@ func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 	fmt.Printf("Repository: %s | Commit: %s | Interval: %s\n", 
 		repo.FullName(), commitSHA[:8], config.Interval)
 
-	// Clean shutdown on context cancellation
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- monitor.Execute(ctx)
-	}()
-
-	// Handle immediate shutdown
-	select {
-	case <-ctx.Done():
-		// Stop spinner if running
-		if inlineDisplay, ok := display.(*InlineDisplayManager); ok {
-			inlineDisplay.Stop()
-		}
-		fmt.Printf("\n\n🛑 Monitoring stopped\n")
-		return nil
-	case err := <-errCh:
-		// Stop spinner if running
-		if inlineDisplay, ok := display.(*InlineDisplayManager); ok {
-			inlineDisplay.Stop()
-		}
-		if err != nil && err != context.Canceled {
-			return err
-		}
-		fmt.Printf("\n\n✅ Monitoring completed\n")
-		return nil
+	// Run monitor
+	err = monitor.Execute(ctx)
+	if err != nil && err != context.Canceled {
+		return err
 	}
+	
+	return nil
 }

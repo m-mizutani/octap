@@ -12,7 +12,7 @@ import (
 func TestConfig(t *testing.T) {
 	t.Run("NewConfig defaults", func(t *testing.T) {
 		config := cli.NewConfig()
-		gt.Equal(t, config.Interval, 15*time.Second)
+		gt.Equal(t, config.Interval, 5*time.Second)
 		gt.Equal(t, config.Silent, false)
 	})
 

@@ -50,6 +50,9 @@ octap -c abc123def
 ### Adjust polling interval
 
 ```bash
+# Default is 5 seconds
+octap
+
 # Check every 30 seconds
 octap -i 30s
 ```
@@ -82,7 +85,7 @@ The token is stored locally at `~/.config/octap/token.json`.
 ### Command-line flags
 
 - `-c, --commit`: Specify commit SHA to monitor
-- `-i, --interval`: Polling interval (default: 15s)
+- `-i, --interval`: Polling interval (default: 5s)
 - `--config`: Config file path
 - `--silent`: Disable sound notifications
 - `--verbose`: Enable verbose logging
