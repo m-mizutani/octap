@@ -12,14 +12,14 @@ import (
 
 // ProgressDisplayManager provides progress-based status display
 type ProgressDisplayManager struct {
-	repoName      string
-	commitSHA     string
-	initialRuns   map[string]*model.WorkflowRun
-	currentRuns   map[string]*model.WorkflowRun
-	totalCount    int
+	repoName       string
+	commitSHA      string
+	initialRuns    map[string]*model.WorkflowRun
+	currentRuns    map[string]*model.WorkflowRun
+	totalCount     int
 	completedCount int
-	firstDisplay  bool
-	lastCheckTime time.Time
+	firstDisplay   bool
+	lastCheckTime  time.Time
 }
 
 func NewProgressDisplayManager(repoName, commitSHA string) interfaces.ExtendedDisplay {
@@ -38,7 +38,7 @@ func (d *ProgressDisplayManager) Clear() {
 
 func (d *ProgressDisplayManager) Update(runs []*model.WorkflowRun, lastUpdate time.Time, interval time.Duration) {
 	d.lastCheckTime = lastUpdate
-	
+
 	// Deduplicate runs by name (keep the latest one)
 	newRuns := make(map[string]*model.WorkflowRun)
 	for _, run := range runs {
@@ -54,20 +54,20 @@ func (d *ProgressDisplayManager) Update(runs []*model.WorkflowRun, lastUpdate ti
 		d.initialRuns = newRuns
 		d.currentRuns = newRuns
 		d.totalCount = len(newRuns)
-		
+
 		if len(newRuns) == 0 {
 			fmt.Printf("⏳ Waiting for workflows to start for commit %s...\n", d.commitSHA[:8])
 			return
 		}
-		
+
 		fmt.Println("\n📋 Workflow Status:")
 		fmt.Println(strings.Repeat("─", 50))
-		
+
 		for _, run := range newRuns {
 			d.printWorkflowLine(run)
 		}
 		fmt.Println(strings.Repeat("─", 50))
-		
+
 		// Count initial completed
 		d.completedCount = 0
 		for _, run := range newRuns {
@@ -75,7 +75,7 @@ func (d *ProgressDisplayManager) Update(runs []*model.WorkflowRun, lastUpdate ti
 				d.completedCount++
 			}
 		}
-		
+
 		return
 	}
 
@@ -83,12 +83,12 @@ func (d *ProgressDisplayManager) Update(runs []*model.WorkflowRun, lastUpdate ti
 	hasChanges := false
 	var changedRuns []*model.WorkflowRun
 	newCompletedCount := 0
-	
+
 	for name, run := range newRuns {
 		if run.Status == model.WorkflowStatusCompleted {
 			newCompletedCount++
 		}
-		
+
 		oldRun, exists := d.currentRuns[name]
 		if !exists || oldRun.Status != run.Status || oldRun.Conclusion != run.Conclusion {
 			hasChanges = true
@@ -104,12 +104,12 @@ func (d *ProgressDisplayManager) Update(runs []*model.WorkflowRun, lastUpdate ti
 	if hasChanges {
 		// Clear the countdown line
 		fmt.Print("\r\033[K")
-		
+
 		// Show progress and changes
 		timestamp := time.Now().Format("15:04:05")
 		progressBar := d.getProgressBar()
 		fmt.Printf("\n%s %s [%s]\n", progressBar, getProgressText(d.completedCount, d.totalCount), timestamp)
-		
+
 		for _, run := range changedRuns {
 			fmt.Printf("  └─ ")
 			d.printWorkflowLine(run)
@@ -128,15 +128,15 @@ func (d *ProgressDisplayManager) ShowCountdown(remaining time.Duration) {
 
 func (d *ProgressDisplayManager) ShowFinalSummary() {
 	fmt.Print("\r\033[K") // Clear countdown line
-	
+
 	fmt.Println("\n" + strings.Repeat("═", 50))
 	fmt.Println("✨ All workflows completed!")
 	fmt.Println(strings.Repeat("═", 50))
-	
+
 	successCount := 0
 	failureCount := 0
 	otherCount := 0
-	
+
 	for _, run := range d.currentRuns {
 		if run.Status == model.WorkflowStatusCompleted {
 			switch run.Conclusion {
@@ -149,7 +149,7 @@ func (d *ProgressDisplayManager) ShowFinalSummary() {
 			}
 		}
 	}
-	
+
 	fmt.Printf("📊 Results: ")
 	if successCount > 0 {
 		color.New(color.FgGreen).Printf("✅ %d success ", successCount)
@@ -166,7 +166,7 @@ func (d *ProgressDisplayManager) ShowFinalSummary() {
 func (d *ProgressDisplayManager) printWorkflowLine(run *model.WorkflowRun) {
 	icon := getWorkflowIcon(run.Status, run.Conclusion)
 	statusText := getWorkflowStatusText(run.Status, run.Conclusion)
-	
+
 	var statusColor *color.Color
 	switch run.Status {
 	case model.WorkflowStatusCompleted:
@@ -183,7 +183,7 @@ func (d *ProgressDisplayManager) printWorkflowLine(run *model.WorkflowRun) {
 	default:
 		statusColor = color.New(color.FgWhite)
 	}
-	
+
 	fmt.Printf("%s ", icon)
 	statusColor.Printf("%-20s %s\n", run.Name, statusText)
 }
@@ -192,9 +192,9 @@ func (d *ProgressDisplayManager) getProgressBar() string {
 	if d.totalCount == 0 {
 		return "⏳"
 	}
-	
+
 	percentage := float64(d.completedCount) / float64(d.totalCount)
-	
+
 	// Determine icon based on completion status
 	allSuccess := true
 	hasFailure := false
@@ -208,7 +208,7 @@ func (d *ProgressDisplayManager) getProgressBar() string {
 			}
 		}
 	}
-	
+
 	if percentage == 1.0 {
 		if allSuccess {
 			return "✅"
@@ -218,7 +218,7 @@ func (d *ProgressDisplayManager) getProgressBar() string {
 			return "⚠️"
 		}
 	}
-	
+
 	return "🔄"
 }
 
@@ -237,7 +237,7 @@ func getWorkflowIcon(status model.WorkflowStatus, conclusion model.WorkflowConcl
 			return "❓"
 		}
 	}
-	
+
 	switch status {
 	case model.WorkflowStatusInProgress:
 		return "🔄"

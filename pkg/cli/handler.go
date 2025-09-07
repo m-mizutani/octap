@@ -85,12 +85,11 @@ func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 		Logger:   logger,
 	})
 
-
 	// Run monitor
 	err = monitor.Execute(ctx)
 	if err != nil && err != context.Canceled {
 		return err
 	}
-	
+
 	return nil
 }

@@ -57,7 +57,7 @@ func (u *MonitorUseCase) Execute(ctx context.Context) error {
 	for {
 		// Check if this is the initial run
 		isInitial := initialCheck
-		
+
 		// Perform the check
 		if isInitial || time.Since(lastUpdate) >= u.config.Interval {
 			runs, err := u.github.GetWorkflowRuns(ctx, u.config.Repo, u.config.CommitSHA)
@@ -76,10 +76,10 @@ func (u *MonitorUseCase) Execute(ctx context.Context) error {
 
 			// Collect newly completed workflows for notifications
 			var newlyCompleted []*model.WorkflowRun
-			
+
 			allCompleted := true
 			hasNewCompletions := false
-			
+
 			for _, run := range runs {
 				previous, exists := knownRuns[run.ID]
 				knownRuns[run.ID] = run
@@ -119,7 +119,7 @@ func (u *MonitorUseCase) Execute(ctx context.Context) error {
 					if extDisplay, ok := u.display.(interfaces.ExtendedDisplay); ok {
 						extDisplay.ShowFinalSummary()
 					}
-					
+
 					summary := u.buildSummary(runs, startTime)
 					if err := u.notifier.NotifyComplete(ctx, summary); err != nil {
 						u.logger.Warn("failed to notify completion",

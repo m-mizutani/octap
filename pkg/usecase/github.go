@@ -34,7 +34,7 @@ func (s *GitHubService) GetCurrentCommit(ctx context.Context, repoPath string) (
 		return "", domain.ErrRepository.Wrap(err)
 	}
 	commitSHA := strings.TrimSpace(string(output))
-	
+
 	// Check if commit is pushed to remote
 	checkCmd := exec.CommandContext(ctx, "git", "branch", "-r", "--contains", commitSHA)
 	checkCmd.Dir = repoPath
@@ -45,7 +45,7 @@ func (s *GitHubService) GetCurrentCommit(ctx context.Context, repoPath string) (
 		)
 		return "", fmt.Errorf("commit %s has not been pushed to remote repository", commitSHA[:8])
 	}
-	
+
 	return commitSHA, nil
 }
 

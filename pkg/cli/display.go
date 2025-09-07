@@ -46,7 +46,6 @@ func (d *DisplayManager) Update(runs []*model.WorkflowRun, lastUpdate time.Time,
 	}
 }
 
-
 func (d *DisplayManager) ShowWaiting(commitSHA, repoName string) {
 	fmt.Printf("⏳ Waiting for workflows to start...\n")
 }
