@@ -103,7 +103,7 @@ func (d *DisplayManager) Update(runs []*model.WorkflowRun, lastUpdate time.Time,
 	// Update current state
 	d.currentRuns = newRuns
 	d.completedCount = newCompletedCount
-	
+
 	// Update totalCount if new workflows appeared
 	if len(newRuns) > d.totalCount {
 		d.totalCount = len(newRuns)

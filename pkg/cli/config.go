@@ -8,10 +8,9 @@ import (
 )
 
 type Config struct {
-	CommitSHA  string
-	Interval   time.Duration
-	ConfigPath string
-	Silent     bool
+	CommitSHA string
+	Interval  time.Duration
+	Silent    bool
 }
 
 func NewConfig() *Config {
@@ -22,10 +21,9 @@ func NewConfig() *Config {
 
 func (c *Config) ToMonitorConfig(repo model.Repository) *model.MonitorConfig {
 	return &model.MonitorConfig{
-		CommitSHA:  c.CommitSHA,
-		Interval:   c.Interval,
-		Repo:       repo,
-		ConfigPath: c.ConfigPath,
+		CommitSHA: c.CommitSHA,
+		Interval:  c.Interval,
+		Repo:      repo,
 	}
 }
 
@@ -41,10 +39,6 @@ func DefineFlags() []cli.Flag {
 			Aliases: []string{"i"},
 			Usage:   "Polling interval",
 			Value:   5 * time.Second,
-		},
-		&cli.StringFlag{
-			Name:  "config",
-			Usage: "Config file path",
 		},
 		&cli.BoolFlag{
 			Name:  "silent",

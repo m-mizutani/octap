@@ -41,6 +41,27 @@ Monitor GitHub Actions for the current commit in the current directory:
 octap
 ```
 
+This will:
+- Automatically detect the current Git repository and commit SHA
+- Display real-time workflow status updates
+- Play sound notifications when workflows complete
+- Show detailed URLs for failed workflows
+
+### Example Output
+
+```
+📋 Workflow Status:
+──────────────────────────────────────────────────
+✅ build                [success]
+❌ test                 [failure] 🔗 https://github.com/user/repo/actions/runs/123456789
+🔄 lint                 [in_progress]
+⏳ deploy               [queued]
+──────────────────────────────────────────────────
+🔄 2/4 completed [15:47:30]
+
+⏱️  Next check in: 5s
+```
+
 ### Monitor specific commit
 
 ```bash
@@ -55,6 +76,9 @@ octap
 
 # Check every 30 seconds
 octap -i 30s
+
+# Check every 2 minutes
+octap -i 2m
 ```
 
 ### Disable sound notifications
@@ -63,60 +87,120 @@ octap -i 30s
 octap --silent
 ```
 
-### Debug mode
+### Verbose logging
 
 ```bash
+# Show more detailed information
+octap --verbose
+
+# Show debug information including API calls
 octap --debug
 ```
+
+### Typical Workflow
+
+1. **Push commits to GitHub**:
+   ```bash
+   git push origin feature-branch
+   ```
+
+2. **Monitor the workflows**:
+   ```bash
+   octap
+   ```
+
+3. **octap will**:
+   - Authenticate with GitHub (first time only)
+   - Monitor all workflows for your current commit
+   - Show real-time updates as workflows progress
+   - Play sounds when workflows complete (success/failure)
+   - Display URLs for failed workflows so you can quickly investigate
+   - Exit automatically when all workflows complete
 
 ## Authentication
 
 octap uses GitHub OAuth Device Flow for authentication. On first run:
 
 1. You'll receive a code to copy
-2. Visit the provided GitHub URL
+2. Visit the provided GitHub URL  
 3. Paste the code and authorize the app
 4. octap will automatically complete the authentication
 
 The token is stored locally at `~/.config/octap/token.json`.
 
+### First-time Authentication Example
+
+```
+🔐 GitHub Device Flow Authentication
+────────────────────────────────────
+1. Copy this code: ABCD-1234
+2. Visit: https://github.com/login/device
+3. Paste the code and authorize the app
+
+⏳ Waiting for authorization...
+✅ Authentication successful!
+```
+
 ## Configuration
 
 ### Command-line flags
 
-- `-c, --commit`: Specify commit SHA to monitor
-- `-i, --interval`: Polling interval (default: 5s)
-- `--config`: Config file path
-- `--silent`: Disable sound notifications
-- `--verbose`: Enable verbose logging
-- `--debug`: Enable debug logging
+| Flag | Description | Default | Example |
+|------|-------------|---------|---------|
+| `-c, --commit` | Specify commit SHA to monitor | Current HEAD | `octap -c abc123def` |
+| `-i, --interval` | Polling interval | 5s | `octap -i 30s` |
+| `--silent` | Disable sound notifications | false | `octap --silent` |
+| `--verbose` | Enable verbose logging | false | `octap --verbose` |
+| `--debug` | Enable debug logging | false | `octap --debug` |
 
-## Development
+### Sound Notifications
 
-### Prerequisites
+octap plays different system sounds based on workflow results:
 
-- Go 1.23+
-- golangci-lint (for linting)
-- gosec (for security checks)
+- **Success**: Glass sound (macOS), complete sound (Linux)
+- **Failure**: Basso sound (macOS), error sound (Linux)
+- **Final Summary**: Plays appropriate sound based on overall result
 
-### Building
+Sound notifications are automatically disabled on Windows or unsupported platforms.
 
+### Workflow Status Icons
+
+| Icon | Status | Description |
+|------|--------|-------------|
+| ⏳ | queued | Workflow is waiting to start |
+| 🔄 | in_progress | Workflow is currently running |
+| ✅ | success | Workflow completed successfully |
+| ❌ | failure | Workflow failed (includes URL for investigation) |
+| ⚪ | cancelled | Workflow was cancelled |
+| ⏭️ | skipped | Workflow was skipped |
+
+## Requirements
+
+- **Git repository**: Must be run inside a Git repository with GitHub remote
+- **Pushed commits**: The commit you want to monitor must be pushed to GitHub
+- **Internet connection**: Required for GitHub API access
+
+## Troubleshooting
+
+### Common Issues
+
+**"Current commit has not been pushed to GitHub"**
 ```bash
-go build -o octap .
+git push origin your-branch
 ```
 
-### Testing
+**"failed to get repository info"**
+- Ensure you're in a Git repository with a GitHub remote
+- Check that the remote URL is accessible
 
-```bash
-go test ./...
-```
+**"No saved token found, starting authentication"**
+- This is normal on first run, follow the authentication flow
 
-### Linting
+### Supported Platforms
 
-```bash
-golangci-lint run ./...
-gosec -quiet ./...
-```
+- **macOS**: Full support with system sounds
+- **Linux**: Full support with system sounds (requires `paplay` or `aplay`)
+- **Windows**: Visual monitoring only (sound notifications disabled)
 
 ## License
 

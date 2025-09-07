@@ -18,10 +18,9 @@ func TestConfig(t *testing.T) {
 
 	t.Run("ToMonitorConfig", func(t *testing.T) {
 		config := &cli.Config{
-			CommitSHA:  "abc123",
-			Interval:   30 * time.Second,
-			ConfigPath: "/path/to/config",
-			Silent:     true,
+			CommitSHA: "abc123",
+			Interval:  30 * time.Second,
+			Silent:    true,
 		}
 
 		repo := model.Repository{
@@ -34,6 +33,5 @@ func TestConfig(t *testing.T) {
 		gt.Equal(t, monitorConfig.Interval, 30*time.Second)
 		gt.Equal(t, monitorConfig.Repo.Owner, "owner")
 		gt.Equal(t, monitorConfig.Repo.Name, "repo")
-		gt.Equal(t, monitorConfig.ConfigPath, "/path/to/config")
 	})
 }

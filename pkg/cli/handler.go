@@ -66,10 +66,9 @@ func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	config := &Config{
-		CommitSHA:  commitSHA,
-		Interval:   cmd.Duration("interval"),
-		ConfigPath: cmd.String("config"),
-		Silent:     cmd.Bool("silent"),
+		CommitSHA: commitSHA,
+		Interval:  cmd.Duration("interval"),
+		Silent:    cmd.Bool("silent"),
 	}
 
 	var notifier interfaces.Notifier
