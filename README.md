@@ -140,6 +140,31 @@ The token is stored locally at `~/.config/octap/token.json`.
 ✅ Authentication successful!
 ```
 
+### Using Your Own GitHub OAuth App
+
+By default, octap uses a built-in OAuth Client ID for convenience. For production use or if you encounter rate limiting, you can create and use your own GitHub OAuth App:
+
+1. **Create a GitHub OAuth App**:
+   - Go to GitHub Settings → Developer settings → OAuth Apps
+   - Click "New OAuth App"
+   - Fill in the details:
+     - Application name: Your app name (e.g., "My octap")
+     - Homepage URL: Any valid URL (e.g., "https://github.com/yourusername/octap")
+     - Authorization callback URL: `http://localhost` (not used but required)
+   - Click "Register application"
+
+2. **Use your Client ID**:
+   ```bash
+   # Set via environment variable
+   export OCTAP_GITHUB_OAUTH_CLIENT_ID=your_client_id_here
+   octap
+   
+   # Or pass directly via flag
+   octap --github-oauth-client-id=your_client_id_here
+   ```
+
+**Note**: The Client Secret is not needed for Device Flow authentication.
+
 ## Configuration
 
 ### Command-line flags
@@ -151,6 +176,10 @@ The token is stored locally at `~/.config/octap/token.json`.
 | `--silent` | Disable sound notifications | false | `octap --silent` |
 | `--verbose` | Enable verbose logging | false | `octap --verbose` |
 | `--debug` | Enable debug logging | false | `octap --debug` |
+| `--github-oauth-client-id` | GitHub OAuth App Client ID | Built-in ID | `octap --github-oauth-client-id=Ov23...` |
+
+**Environment Variables**:
+- `OCTAP_GITHUB_OAUTH_CLIENT_ID`: Sets the GitHub OAuth App Client ID
 
 ### Sound Notifications
 

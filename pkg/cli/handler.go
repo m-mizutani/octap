@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"strings"
 
 	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/octap/pkg/domain"
@@ -15,9 +14,6 @@ import (
 )
 
 func RunMonitor(ctx context.Context, cmd *cli.Command) error {
-	// Create cancellable context for immediate shutdown
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 	logLevel := slog.LevelWarn
 	if cmd.Bool("debug") {
 		logLevel = slog.LevelDebug
@@ -32,7 +28,13 @@ func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 	// Inject logger into context
 	ctx = ctxlog.With(ctx, logger)
 
-	authService := usecase.NewAuthService()
+	// Get OAuth client ID from flag/env
+	clientID := cmd.String("github-oauth-client-id")
+	if clientID == "" {
+		logger.Info("Using default GitHub OAuth Client ID. For production use, set OCTAP_GITHUB_OAUTH_CLIENT_ID environment variable")
+	}
+
+	authService := usecase.NewAuthService(clientID)
 	githubService := usecase.NewGitHubService(authService)
 
 	currentDir, err := os.Getwd()
@@ -50,7 +52,7 @@ func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 		commitSHA, err = githubService.GetCurrentCommit(ctx, currentDir)
 		if err != nil {
 			// More user-friendly error message
-			if strings.Contains(err.Error(), "has not been pushed") {
+			if domain.ErrNotPushed.Is(err) {
 				return fmt.Errorf("⚠️  Current commit has not been pushed to GitHub.\nPlease push your commits first: git push")
 			}
 			return fmt.Errorf("failed to get current commit: %w", err)

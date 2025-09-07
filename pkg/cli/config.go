@@ -45,5 +45,10 @@ func DefineFlags() []cli.Flag {
 			Usage: "Disable sound notifications",
 			Value: false,
 		},
+		&cli.StringFlag{
+			Name:    "github-oauth-client-id",
+			Sources: cli.EnvVars("OCTAP_GITHUB_OAUTH_CLIENT_ID"),
+			Usage:   "GitHub OAuth App Client ID (defaults to built-in ID)",
+		},
 	}
 }

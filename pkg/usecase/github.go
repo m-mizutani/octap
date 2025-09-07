@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os/exec"
 	"strings"
@@ -43,7 +42,7 @@ func (s *GitHubService) GetCurrentCommit(ctx context.Context, repoPath string) (
 		logger.Warn("Commit not found in remote branches",
 			slog.String("sha", commitSHA[:8]),
 		)
-		return "", fmt.Errorf("commit %s has not been pushed to remote repository", commitSHA[:8])
+		return "", goerr.Wrap(domain.ErrNotPushed, "commit not found in remote", goerr.V("commit", commitSHA[:8]))
 	}
 
 	return commitSHA, nil

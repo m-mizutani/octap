@@ -8,7 +8,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/google/go-github/v74/github"
@@ -46,9 +45,8 @@ type AuthService struct {
 	clientID string
 }
 
-func NewAuthService() interfaces.AuthService {
-	// Get Client ID from environment variable or use default
-	clientID := os.Getenv("OCTAP_CLIENT_ID")
+func NewAuthService(clientID string) interfaces.AuthService {
+	// Use default client ID if not provided
 	if clientID == "" {
 		clientID = "Ov23litxvfoH9DYHtwKP"
 	}
