@@ -60,14 +60,6 @@ func (d *DisplayManager) Update(runs []*model.WorkflowRun, lastUpdate time.Time,
 			return
 		}
 
-		fmt.Println("\n📋 Workflow Status:")
-		fmt.Println(strings.Repeat("─", 50))
-
-		for _, run := range newRuns {
-			d.printWorkflowLine(run)
-		}
-		fmt.Println(strings.Repeat("─", 50))
-
 		// Count initial completed
 		d.completedCount = 0
 		for _, run := range newRuns {
@@ -75,6 +67,18 @@ func (d *DisplayManager) Update(runs []*model.WorkflowRun, lastUpdate time.Time,
 				d.completedCount++
 			}
 		}
+
+		fmt.Println("\n📋 Workflow Status:")
+		fmt.Println(strings.Repeat("─", 50))
+
+		for _, run := range newRuns {
+			d.printWorkflowLine(run)
+		}
+		fmt.Println(strings.Repeat("─", 50))
+		
+		// Show initial progress
+		progressBar := d.getProgressBar()
+		fmt.Printf("%s %s\n", progressBar, getProgressText(d.completedCount, d.totalCount))
 
 		return
 	}
