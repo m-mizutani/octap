@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/google/go-github/v74/github"
+	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/m-mizutani/octap/pkg/domain"
 	"github.com/m-mizutani/octap/pkg/domain/interfaces"
@@ -16,17 +17,16 @@ import (
 
 type GitHubService struct {
 	authService interfaces.AuthService
-	logger      *slog.Logger
 }
 
-func NewGitHubService(authService interfaces.AuthService, logger *slog.Logger) interfaces.GitHubService {
+func NewGitHubService(authService interfaces.AuthService) interfaces.GitHubService {
 	return &GitHubService{
 		authService: authService,
-		logger:      logger,
 	}
 }
 
 func (s *GitHubService) GetCurrentCommit(ctx context.Context, repoPath string) (string, error) {
+	logger := ctxlog.From(ctx)
 	cmd := exec.CommandContext(ctx, "git", "rev-parse", "HEAD")
 	cmd.Dir = repoPath
 	output, err := cmd.Output()
@@ -40,7 +40,7 @@ func (s *GitHubService) GetCurrentCommit(ctx context.Context, repoPath string) (
 	checkCmd.Dir = repoPath
 	remoteOutput, err := checkCmd.Output()
 	if err != nil || len(remoteOutput) == 0 {
-		s.logger.Warn("Commit not found in remote branches",
+		logger.Warn("Commit not found in remote branches",
 			slog.String("sha", commitSHA[:8]),
 		)
 		return "", fmt.Errorf("commit %s has not been pushed to remote repository", commitSHA[:8])
@@ -97,6 +97,7 @@ func parseGitHubURL(url string) (owner, repo string) {
 }
 
 func (s *GitHubService) GetWorkflowRuns(ctx context.Context, repo model.Repository, commitSHA string) ([]*model.WorkflowRun, error) {
+	logger := ctxlog.From(ctx)
 	authSvc, ok := s.authService.(*AuthService)
 	if !ok {
 		return nil, domain.ErrConfiguration.Wrap(goerr.New("invalid auth service type"))
@@ -137,7 +138,7 @@ func (s *GitHubService) GetWorkflowRuns(ctx context.Context, repo model.Reposito
 		workflowRuns = append(workflowRuns, workflowRun)
 	}
 
-	s.logger.Debug("fetched workflow runs",
+	logger.Debug("fetched workflow runs",
 		slog.String("repo", repo.FullName()),
 		slog.String("commit", commitSHA),
 		slog.Int("count", len(workflowRuns)),

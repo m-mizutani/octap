@@ -75,7 +75,7 @@ func (d *DisplayManager) Update(runs []*model.WorkflowRun, lastUpdate time.Time,
 			d.printWorkflowLine(run)
 		}
 		fmt.Println(strings.Repeat("─", 50))
-		
+
 		// Show initial progress
 		progressBar := d.getProgressBar()
 		fmt.Printf("%s %s\n", progressBar, getProgressText(d.completedCount, d.totalCount))

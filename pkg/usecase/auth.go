@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/go-github/v74/github"
+	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/m-mizutani/octap/pkg/domain"
 	"github.com/m-mizutani/octap/pkg/domain/interfaces"
@@ -42,11 +43,10 @@ type tokenResponse struct {
 
 type AuthService struct {
 	storage  *TokenStorage
-	logger   *slog.Logger
 	clientID string
 }
 
-func NewAuthService(logger *slog.Logger) interfaces.AuthService {
+func NewAuthService() interfaces.AuthService {
 	// Get Client ID from environment variable or use default
 	clientID := os.Getenv("OCTAP_CLIENT_ID")
 	if clientID == "" {
@@ -55,7 +55,6 @@ func NewAuthService(logger *slog.Logger) interfaces.AuthService {
 
 	return &AuthService{
 		storage:  NewTokenStorage(),
-		logger:   logger,
 		clientID: clientID,
 	}
 }
@@ -98,13 +97,14 @@ func (s *AuthService) DeviceFlow(ctx context.Context) (string, error) {
 }
 
 func (s *AuthService) GetAuthenticatedClient(ctx context.Context) (*github.Client, error) {
+	logger := ctxlog.From(ctx)
 	token, err := s.GetToken(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	if token == "" {
-		s.logger.Debug("No saved token found, starting authentication")
+		logger.Debug("No saved token found, starting authentication")
 		token, err = s.DeviceFlow(ctx)
 		if err != nil {
 			return nil, err
@@ -185,20 +185,23 @@ func (s *AuthService) pollForToken(ctx context.Context, deviceCode *deviceCodeRe
 
 			resp, err := client.Do(req)
 			if err != nil {
-				s.logger.Debug("error polling for token", slog.String("error", err.Error()))
+				logger := ctxlog.From(ctx)
+				logger.Debug("error polling for token", slog.String("error", err.Error()))
 				continue
 			}
 
 			body, err := io.ReadAll(resp.Body)
 			resp.Body.Close()
 			if err != nil {
-				s.logger.Debug("error reading response", slog.String("error", err.Error()))
+				logger := ctxlog.From(ctx)
+				logger.Debug("error reading response", slog.String("error", err.Error()))
 				continue
 			}
 
 			var tokenResp tokenResponse
 			if err := json.Unmarshal(body, &tokenResp); err != nil {
-				s.logger.Debug("error parsing response", slog.String("error", err.Error()))
+				logger := ctxlog.From(ctx)
+				logger.Debug("error parsing response", slog.String("error", err.Error()))
 				continue
 			}
 

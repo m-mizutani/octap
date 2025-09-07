@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/octap/pkg/domain"
 	"github.com/m-mizutani/octap/pkg/domain/interfaces"
 	"github.com/m-mizutani/octap/pkg/domain/model"
@@ -15,7 +16,6 @@ type MonitorUseCase struct {
 	notifier interfaces.Notifier
 	display  interfaces.Display
 	config   *model.MonitorConfig
-	logger   *slog.Logger
 }
 
 type MonitorUseCaseOptions struct {
@@ -23,7 +23,6 @@ type MonitorUseCaseOptions struct {
 	Notifier interfaces.Notifier
 	Display  interfaces.Display
 	Config   *model.MonitorConfig
-	Logger   *slog.Logger
 }
 
 func NewMonitorUseCase(opts MonitorUseCaseOptions) *MonitorUseCase {
@@ -32,17 +31,17 @@ func NewMonitorUseCase(opts MonitorUseCaseOptions) *MonitorUseCase {
 		notifier: opts.Notifier,
 		display:  opts.Display,
 		config:   opts.Config,
-		logger:   opts.Logger,
 	}
 }
 
 func (u *MonitorUseCase) Execute(ctx context.Context) error {
+	logger := ctxlog.From(ctx)
 	startTime := time.Now()
 	knownRuns := make(map[int64]*model.WorkflowRun)
 	completedRuns := make(map[int64]bool)
 	var lastUpdate time.Time
 
-	u.logger.Debug("starting monitor",
+	logger.Debug("starting monitor",
 		slog.String("repo", u.config.Repo.FullName()),
 		slog.String("commit", u.config.CommitSHA),
 		slog.Duration("interval", u.config.Interval),
@@ -62,7 +61,7 @@ func (u *MonitorUseCase) Execute(ctx context.Context) error {
 		if isInitial || time.Since(lastUpdate) >= u.config.Interval {
 			runs, err := u.github.GetWorkflowRuns(ctx, u.config.Repo, u.config.CommitSHA)
 			if err != nil {
-				u.logger.Error("failed to get workflow runs",
+				logger.Error("failed to get workflow runs",
 					slog.String("error", err.Error()),
 				)
 				if domain.ErrAuthentication.Is(err) {
@@ -122,7 +121,7 @@ func (u *MonitorUseCase) Execute(ctx context.Context) error {
 
 					summary := u.buildSummary(runs, startTime)
 					if err := u.notifier.NotifyComplete(ctx, summary); err != nil {
-						u.logger.Warn("failed to notify completion",
+						logger.Warn("failed to notify completion",
 							slog.String("error", err.Error()),
 						)
 					}
@@ -184,16 +183,17 @@ func (u *MonitorUseCase) buildSummary(runs []*model.WorkflowRun, startTime time.
 }
 
 func (u *MonitorUseCase) handleWorkflowNotification(ctx context.Context, workflow *model.WorkflowRun) {
+	logger := ctxlog.From(ctx)
 	switch workflow.Conclusion {
 	case model.WorkflowConclusionSuccess:
 		if err := u.notifier.NotifySuccess(ctx, workflow); err != nil {
-			u.logger.Warn("failed to notify success",
+			logger.Warn("failed to notify success",
 				slog.String("error", err.Error()),
 			)
 		}
 	case model.WorkflowConclusionFailure:
 		if err := u.notifier.NotifyFailure(ctx, workflow); err != nil {
-			u.logger.Warn("failed to notify failure",
+			logger.Warn("failed to notify failure",
 				slog.String("error", err.Error()),
 			)
 		}

@@ -28,8 +28,8 @@ func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 		Level: logLevel,
 	}))
 
-	authService := usecase.NewAuthService(logger)
-	githubService := usecase.NewGitHubService(authService, logger)
+	authService := usecase.NewAuthService()
+	githubService := usecase.NewGitHubService(authService)
 
 	currentDir, err := os.Getwd()
 	if err != nil {
@@ -72,7 +72,7 @@ func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 	if config.Silent {
 		notifier = usecase.NewNoOpNotifier()
 	} else {
-		notifier = usecase.NewSoundNotifier(logger)
+		notifier = usecase.NewSoundNotifier()
 	}
 
 	display := NewDisplayManager(repo.FullName(), commitSHA)
@@ -82,7 +82,6 @@ func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 		Notifier: notifier,
 		Display:  display,
 		Config:   config.ToMonitorConfig(*repo),
-		Logger:   logger,
 	})
 
 	// Run monitor

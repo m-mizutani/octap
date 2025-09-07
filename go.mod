@@ -1,6 +1,6 @@
 module github.com/m-mizutani/octap
 
-go 1.23.0
+go 1.24.2
 
 require (
 	github.com/fatih/color v1.7.0
@@ -14,6 +14,7 @@ require (
 require (
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/m-mizutani/ctxlog v0.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.2 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	golang.org/x/sys v0.34.0 // indirect

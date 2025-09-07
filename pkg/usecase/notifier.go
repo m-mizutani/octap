@@ -6,44 +6,44 @@ import (
 	"os/exec"
 	"runtime"
 
+	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/octap/pkg/domain/interfaces"
 	"github.com/m-mizutani/octap/pkg/domain/model"
 )
 
-type SoundNotifier struct {
-	logger *slog.Logger
-}
+type SoundNotifier struct{}
 
-func NewSoundNotifier(logger *slog.Logger) interfaces.Notifier {
-	return &SoundNotifier{
-		logger: logger,
-	}
+func NewSoundNotifier() interfaces.Notifier {
+	return &SoundNotifier{}
 }
 
 func (n *SoundNotifier) NotifySuccess(ctx context.Context, workflow *model.WorkflowRun) error {
-	n.logger.Debug("workflow succeeded",
+	logger := ctxlog.From(ctx)
+	logger.Debug("workflow succeeded",
 		slog.String("name", workflow.Name),
 		slog.Int64("id", workflow.ID),
 	)
-	return n.playSystemSound(true)
+	return n.playSystemSound(ctx, true)
 }
 
 func (n *SoundNotifier) NotifyFailure(ctx context.Context, workflow *model.WorkflowRun) error {
-	n.logger.Debug("workflow failed",
+	logger := ctxlog.From(ctx)
+	logger.Debug("workflow failed",
 		slog.String("name", workflow.Name),
 		slog.Int64("id", workflow.ID),
 	)
-	return n.playSystemSound(false)
+	return n.playSystemSound(ctx, false)
 }
 
 func (n *SoundNotifier) NotifyComplete(ctx context.Context, summary *model.Summary) error {
 	if summary.FailureCount > 0 {
-		return n.playSystemSound(false)
+		return n.playSystemSound(ctx, false)
 	}
-	return n.playSystemSound(true)
+	return n.playSystemSound(ctx, true)
 }
 
-func (n *SoundNotifier) playSystemSound(success bool) error {
+func (n *SoundNotifier) playSystemSound(ctx context.Context, success bool) error {
+	logger := ctxlog.From(ctx)
 	var cmd *exec.Cmd
 
 	switch runtime.GOOS {
@@ -65,7 +65,7 @@ func (n *SoundNotifier) playSystemSound(success bool) error {
 	case "windows":
 		return nil
 	default:
-		n.logger.Warn("sound notification not supported on this platform",
+		logger.Warn("sound notification not supported on this platform",
 			slog.String("os", runtime.GOOS),
 		)
 		return nil
@@ -73,7 +73,7 @@ func (n *SoundNotifier) playSystemSound(success bool) error {
 
 	if cmd != nil {
 		if err := cmd.Run(); err != nil {
-			n.logger.Warn("failed to play sound",
+			logger.Warn("failed to play sound",
 				slog.String("error", err.Error()),
 			)
 		}
