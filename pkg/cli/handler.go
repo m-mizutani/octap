@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/octap/pkg/domain"
 	"github.com/m-mizutani/octap/pkg/domain/interfaces"
 	"github.com/m-mizutani/octap/pkg/usecase"
@@ -27,6 +28,9 @@ func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 		Level: logLevel,
 	}))
+
+	// Inject logger into context
+	ctx = ctxlog.With(ctx, logger)
 
 	authService := usecase.NewAuthService()
 	githubService := usecase.NewGitHubService(authService)
