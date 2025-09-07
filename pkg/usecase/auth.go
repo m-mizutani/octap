@@ -1,9 +1,15 @@
 package usecase
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
+	"net/http"
+	"os"
+	"time"
 
 	"github.com/google/go-github/v74/github"
 	"github.com/m-mizutani/goerr/v2"
@@ -12,15 +18,45 @@ import (
 	"golang.org/x/oauth2"
 )
 
+const (
+	// GitHub Device Flow endpoints
+	deviceCodeURL = "https://github.com/login/device/code"
+	tokenURL      = "https://github.com/login/oauth/access_token"
+)
+
+type deviceCodeResponse struct {
+	DeviceCode      string `json:"device_code"`
+	UserCode        string `json:"user_code"`
+	VerificationURI string `json:"verification_uri"`
+	ExpiresIn       int    `json:"expires_in"`
+	Interval        int    `json:"interval"`
+}
+
+type tokenResponse struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	Scope       string `json:"scope"`
+	Error       string `json:"error"`
+	ErrorDesc   string `json:"error_description"`
+}
+
 type AuthService struct {
-	storage *TokenStorage
-	logger  *slog.Logger
+	storage  *TokenStorage
+	logger   *slog.Logger
+	clientID string
 }
 
 func NewAuthService(logger *slog.Logger) interfaces.AuthService {
+	// Get Client ID from environment variable or use default
+	clientID := os.Getenv("OCTAP_CLIENT_ID")
+	if clientID == "" {
+		clientID = "Ov23litxvfoH9DYHtwKP"
+	}
+
 	return &AuthService{
-		storage: NewTokenStorage(),
-		logger:  logger,
+		storage:  NewTokenStorage(),
+		logger:   logger,
+		clientID: clientID,
 	}
 }
 
@@ -33,34 +69,24 @@ func (s *AuthService) SaveToken(ctx context.Context, token string) error {
 }
 
 func (s *AuthService) DeviceFlow(ctx context.Context) (string, error) {
-	// Note: GitHub Device Flow is not yet available in go-github v74
-	// For now, we'll use a personal access token approach
-	// TODO: Implement device flow when available or use direct API calls
-
-	fmt.Printf("\n")
-	fmt.Printf("🔐 GitHub Authentication Required\n")
-	fmt.Printf("────────────────────────────────────\n")
-	fmt.Printf("Please create a personal access token:\n")
-	fmt.Printf("1. Visit: https://github.com/settings/tokens/new\n")
-	fmt.Printf("2. Select 'repo' scope\n")
-	fmt.Printf("3. Generate token\n")
-	fmt.Printf("4. Enter token: ")
-
-	var token string
-	_, _ = fmt.Scanln(&token)
-
-	if token == "" {
-		return "", domain.ErrAuthentication.Wrap(goerr.New("no token provided"))
+	// GitHub Device Flow implementation using direct API calls
+	deviceCode, err := s.requestDeviceCode(ctx)
+	if err != nil {
+		return "", err
 	}
 
-	// Validate token
-	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
-	tc := oauth2.NewClient(ctx, ts)
-	client := github.NewClient(tc)
+	fmt.Printf("\n")
+	fmt.Printf("🔐 GitHub Device Flow Authentication\n")
+	fmt.Printf("────────────────────────────────────\n")
+	fmt.Printf("1. Copy this code: %s\n", deviceCode.UserCode)
+	fmt.Printf("2. Visit: %s\n", deviceCode.VerificationURI)
+	fmt.Printf("3. Paste the code and authorize the app\n")
+	fmt.Printf("\n")
+	fmt.Printf("⏳ Waiting for authorization...\n")
 
-	_, _, err := client.Users.Get(ctx, "")
+	token, err := s.pollForToken(ctx, deviceCode)
 	if err != nil {
-		return "", domain.ErrAuthentication.Wrap(err)
+		return "", err
 	}
 
 	if err := s.SaveToken(ctx, token); err != nil {
@@ -88,4 +114,112 @@ func (s *AuthService) GetAuthenticatedClient(ctx context.Context) (*github.Clien
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
 	tc := oauth2.NewClient(ctx, ts)
 	return github.NewClient(tc), nil
+}
+
+func (s *AuthService) requestDeviceCode(ctx context.Context) (*deviceCodeResponse, error) {
+	reqBody := bytes.NewBufferString(fmt.Sprintf("client_id=%s&scope=repo", s.clientID))
+
+	req, err := http.NewRequestWithContext(ctx, "POST", deviceCodeURL, reqBody)
+	if err != nil {
+		return nil, domain.ErrAuthentication.Wrap(err)
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, domain.ErrAuthentication.Wrap(err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, domain.ErrAuthentication.Wrap(err)
+	}
+
+	var deviceCode deviceCodeResponse
+	if err := json.Unmarshal(body, &deviceCode); err != nil {
+		return nil, domain.ErrAuthentication.Wrap(err)
+	}
+
+	if deviceCode.DeviceCode == "" {
+		return nil, domain.ErrAuthentication.Wrap(goerr.New("failed to get device code - check your Client ID"))
+	}
+
+	return &deviceCode, nil
+}
+
+func (s *AuthService) pollForToken(ctx context.Context, deviceCode *deviceCodeResponse) (string, error) {
+	interval := time.Duration(deviceCode.Interval) * time.Second
+	if interval == 0 {
+		interval = 5 * time.Second
+	}
+
+	deadline := time.Now().Add(time.Duration(deviceCode.ExpiresIn) * time.Second)
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	client := &http.Client{Timeout: 30 * time.Second}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return "", domain.ErrAuthentication.Wrap(ctx.Err())
+		case <-ticker.C:
+			if time.Now().After(deadline) {
+				return "", domain.ErrAuthentication.Wrap(goerr.New("device code expired"))
+			}
+
+			reqBody := bytes.NewBufferString(fmt.Sprintf(
+				"client_id=%s&device_code=%s&grant_type=urn:ietf:params:oauth:grant-type:device_code",
+				s.clientID, deviceCode.DeviceCode,
+			))
+
+			req, err := http.NewRequestWithContext(ctx, "POST", tokenURL, reqBody)
+			if err != nil {
+				return "", domain.ErrAuthentication.Wrap(err)
+			}
+			req.Header.Set("Accept", "application/json")
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+			resp, err := client.Do(req)
+			if err != nil {
+				s.logger.Debug("error polling for token", slog.String("error", err.Error()))
+				continue
+			}
+
+			body, err := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if err != nil {
+				s.logger.Debug("error reading response", slog.String("error", err.Error()))
+				continue
+			}
+
+			var tokenResp tokenResponse
+			if err := json.Unmarshal(body, &tokenResp); err != nil {
+				s.logger.Debug("error parsing response", slog.String("error", err.Error()))
+				continue
+			}
+
+			if tokenResp.Error != "" {
+				if tokenResp.Error == "authorization_pending" {
+					// Still waiting for user authorization
+					continue
+				}
+				if tokenResp.Error == "slow_down" {
+					// Increase interval
+					interval = interval + 5*time.Second
+					ticker.Reset(interval)
+					continue
+				}
+				// Other errors
+				return "", domain.ErrAuthentication.Wrap(goerr.New(tokenResp.ErrorDesc))
+			}
+
+			if tokenResp.AccessToken != "" {
+				return tokenResp.AccessToken, nil
+			}
+		}
+	}
 }

@@ -68,12 +68,12 @@ octap --debug
 
 ## Authentication
 
-On first run, octap will prompt you to create a GitHub personal access token:
+octap uses GitHub OAuth Device Flow for authentication. On first run:
 
-1. Visit https://github.com/settings/tokens/new
-2. Select the `repo` scope
-3. Generate the token
-4. Enter the token when prompted
+1. You'll receive a code to copy
+2. Visit the provided GitHub URL
+3. Paste the code and authorize the app
+4. octap will automatically complete the authentication
 
 The token is stored locally at `~/.config/octap/token.json`.
 
