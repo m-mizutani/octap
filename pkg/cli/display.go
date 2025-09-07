@@ -103,6 +103,11 @@ func (d *DisplayManager) Update(runs []*model.WorkflowRun, lastUpdate time.Time,
 	// Update current state
 	d.currentRuns = newRuns
 	d.completedCount = newCompletedCount
+	
+	// Update totalCount if new workflows appeared
+	if len(newRuns) > d.totalCount {
+		d.totalCount = len(newRuns)
+	}
 
 	// If there are changes, show them
 	if hasChanges {
@@ -189,7 +194,13 @@ func (d *DisplayManager) printWorkflowLine(run *model.WorkflowRun) {
 	}
 
 	fmt.Printf("%s ", icon)
-	statusColor.Printf("%-20s %s\n", run.Name, statusText)
+	statusColor.Printf("%-20s %s", run.Name, statusText)
+
+	// Show URL for failed workflows
+	if run.Status == model.WorkflowStatusCompleted && run.Conclusion == model.WorkflowConclusionFailure {
+		fmt.Printf(" 🔗 %s", run.URL)
+	}
+	fmt.Println()
 }
 
 func (d *DisplayManager) getProgressBar() string {
