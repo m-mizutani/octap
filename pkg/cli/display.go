@@ -10,8 +10,10 @@ import (
 )
 
 type DisplayManager struct {
-	repoName  string
-	commitSHA string
+	repoName     string
+	commitSHA    string
+	lastRunNames []string
+	initialized  bool
 }
 
 func NewDisplayManager(repoName, commitSHA string) interfaces.Display {
@@ -22,48 +24,65 @@ func NewDisplayManager(repoName, commitSHA string) interfaces.Display {
 }
 
 func (d *DisplayManager) Clear() {
-	fmt.Print("\033[H\033[2J")
+	// Do nothing - we'll use inline updates instead
 }
 
 func (d *DisplayManager) Update(runs []*model.WorkflowRun, lastUpdate time.Time, interval time.Duration) {
-	d.Clear()
-
-	fmt.Printf("🔄 Monitoring GitHub Actions for commit: %s\n", d.commitSHA[:8])
-	fmt.Printf("Repository: %s\n", d.repoName)
-	fmt.Printf("Interval: %s\n\n", interval)
-
 	if len(runs) == 0 {
-		fmt.Printf("⏳ No workflow runs found yet...\n")
-	} else {
-		fmt.Printf("╭─ Workflow Runs ────────────────────────────────────╮\n")
-		for _, run := range runs {
-			statusIcon := d.getStatusIcon(run.Status, run.Conclusion)
-			statusText := d.getStatusText(run.Status, run.Conclusion)
-			timeInfo := d.getTimeInfo(run)
-
-			name := run.Name
-			if len(name) > 20 {
-				name = name[:20] + "..."
-			}
-
-			fmt.Printf("│ %s %-23s %-13s %-10s │\n",
-				statusIcon, name, statusText, timeInfo)
+		if !d.initialized {
+			fmt.Printf("⏳ No workflow runs found yet... (last checked: %s)\n", 
+				lastUpdate.Format("15:04:05"))
+			d.initialized = true
 		}
-		fmt.Printf("╰────────────────────────────────────────────────────╯\n")
+		return
 	}
 
-	fmt.Printf("\nLast updated: %s\n", lastUpdate.Format("2006-01-02 15:04:05"))
-	nextCheck := time.Until(lastUpdate.Add(interval))
-	if nextCheck > 0 {
-		fmt.Printf("Next check in: %s\n", nextCheck.Round(time.Second))
+	// Create current run names slice
+	currentRunNames := make([]string, len(runs))
+	for i, run := range runs {
+		currentRunNames[i] = run.Name
+	}
+
+	// If this is first time or workflow list changed, print headers
+	if !d.initialized || !d.sameWorkflows(currentRunNames) {
+		if d.initialized {
+			// Move cursor up to overwrite previous lines
+			fmt.Printf("\033[%dA", len(d.lastRunNames))
+		}
+		d.lastRunNames = currentRunNames
+		d.initialized = true
+	} else {
+		// Move cursor up to overwrite previous lines
+		fmt.Printf("\033[%dA", len(runs))
+	}
+
+	// Show workflow status in one line per workflow
+	for _, run := range runs {
+		statusIcon := d.getStatusIcon(run.Status, run.Conclusion)
+		statusText := d.getStatusText(run.Status, run.Conclusion)
+		timeInfo := d.getTimeInfo(run)
+
+		// Clear line and print status
+		fmt.Printf("\033[2K%s %s %s %s\n",
+			statusIcon, run.Name, statusText, timeInfo)
 	}
 }
 
+func (d *DisplayManager) sameWorkflows(current []string) bool {
+	if len(current) != len(d.lastRunNames) {
+		return false
+	}
+	for i, name := range current {
+		if name != d.lastRunNames[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func (d *DisplayManager) ShowWaiting(commitSHA, repoName string) {
-	d.Clear()
-	fmt.Printf("⏳ Waiting for workflows to start...\n")
-	fmt.Printf("Repository: %s\n", repoName)
-	fmt.Printf("Commit: %s\n", commitSHA[:8])
+	fmt.Printf("⏳ Waiting for workflows to start... (repo: %s, commit: %s)\n", 
+		repoName, commitSHA[:8])
 }
 
 func (d *DisplayManager) getStatusIcon(status model.WorkflowStatus, conclusion model.WorkflowConclusion) string {
