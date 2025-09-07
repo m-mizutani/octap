@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os/exec"
 	"strings"
@@ -32,7 +33,20 @@ func (s *GitHubService) GetCurrentCommit(ctx context.Context, repoPath string) (
 	if err != nil {
 		return "", domain.ErrRepository.Wrap(err)
 	}
-	return strings.TrimSpace(string(output)), nil
+	commitSHA := strings.TrimSpace(string(output))
+	
+	// Check if commit is pushed to remote
+	checkCmd := exec.CommandContext(ctx, "git", "branch", "-r", "--contains", commitSHA)
+	checkCmd.Dir = repoPath
+	remoteOutput, err := checkCmd.Output()
+	if err != nil || len(remoteOutput) == 0 {
+		s.logger.Warn("Commit not found in remote branches",
+			slog.String("sha", commitSHA[:8]),
+		)
+		return "", fmt.Errorf("commit %s has not been pushed to remote repository", commitSHA[:8])
+	}
+	
+	return commitSHA, nil
 }
 
 func (s *GitHubService) GetRepositoryInfo(ctx context.Context, repoPath string) (*model.Repository, error) {

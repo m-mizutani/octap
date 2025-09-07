@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/m-mizutani/octap/pkg/domain/interfaces"
 	"github.com/m-mizutani/octap/pkg/domain/model"
@@ -29,14 +29,14 @@ var (
 )
 
 type TUIModel struct {
-	repoName     string
-	commitSHA    string
-	interval     time.Duration
-	lastUpdate   time.Time
-	runs         []*model.WorkflowRun
-	waiting      bool
-	width        int
-	height       int
+	repoName   string
+	commitSHA  string
+	interval   time.Duration
+	lastUpdate time.Time
+	runs       []*model.WorkflowRun
+	waiting    bool
+	width      int
+	height     int
 }
 
 type TickMsg time.Time
@@ -93,7 +93,7 @@ func (m *TUIModel) View() string {
 		return ""
 	}
 
-	header := headerStyle.Render(fmt.Sprintf("🔄 Monitoring GitHub Actions"))
+	header := headerStyle.Render("🔄 Monitoring GitHub Actions")
 	info := fmt.Sprintf("Repository: %s | Commit: %s | Interval: %s",
 		m.repoName, m.commitSHA[:8], m.interval)
 
@@ -114,13 +114,13 @@ func (m *TUIModel) View() string {
 
 	// Create table
 	table := m.renderTable()
-	
+
 	now := time.Now()
 	nextCheck := time.Until(m.lastUpdate.Add(m.interval))
 	statusInfo := fmt.Sprintf("Now: %s | Last check: %s",
 		now.Format("15:04:05"),
 		m.lastUpdate.Format("15:04:05"))
-	
+
 	if nextCheck > 0 {
 		statusInfo += fmt.Sprintf(" | Next in: %s", nextCheck.Round(time.Second))
 	} else {
@@ -153,7 +153,7 @@ func (m *TUIModel) renderTable() string {
 
 	// Create table rows
 	var rows []string
-	
+
 	// Header
 	headerRow := fmt.Sprintf("%-4s %-20s %-15s %-12s",
 		"", "Workflow", "Status", "Time")
@@ -170,7 +170,7 @@ func (m *TUIModel) renderTable() string {
 
 		row := fmt.Sprintf("%-4s %-20s %-15s %-12s",
 			icon, name, status, timeInfo)
-		
+
 		// Style row based on status
 		style := lipgloss.NewStyle()
 		if run.Status == model.WorkflowStatusCompleted {
@@ -182,7 +182,7 @@ func (m *TUIModel) renderTable() string {
 		} else {
 			style = style.Foreground(lipgloss.Color("11"))
 		}
-		
+
 		rows = append(rows, style.Render(row))
 	}
 
@@ -256,7 +256,7 @@ type TUIDisplay struct {
 func NewTUIDisplay(repoName, commitSHA string, interval time.Duration) interfaces.Display {
 	model := NewTUIModel(repoName, commitSHA, interval)
 	program := tea.NewProgram(model)
-	
+
 	return &TUIDisplay{
 		program: program,
 		model:   model,

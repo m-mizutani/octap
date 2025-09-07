@@ -56,22 +56,38 @@ func (u *MonitorUseCase) Execute(ctx context.Context) error {
 	refreshTicker := time.NewTicker(1 * time.Second)
 	defer refreshTicker.Stop()
 
+	// Perform initial check immediately
+	initialCheck := true
+
 	for {
+		// Check if this is the initial run
+		isInitial := initialCheck
+		
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-refreshTicker.C:
+			// Check for cancellation during refresh
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
 			// Refresh display with current data every second
 			if u.display != nil && len(currentRuns) > 0 {
 				u.display.Update(currentRuns, lastUpdate, u.config.Interval)
 			}
 			continue
 		case <-ticker.C:
-			// Main polling logic
+			// Main polling logic after initial check
 		default:
-			// Initial run
+			// Skip delay on initial run
+			if !initialCheck {
+				continue
+			}
 		}
 
+		
 		runs, err := u.github.GetWorkflowRuns(ctx, u.config.Repo, u.config.CommitSHA)
 		if err != nil {
 			u.logger.Error("failed to get workflow runs",
@@ -80,16 +96,24 @@ func (u *MonitorUseCase) Execute(ctx context.Context) error {
 			if domain.ErrAuthentication.Is(err) {
 				return err
 			}
-			if ticker != nil {
-				<-ticker.C
+			// Don't wait on initial check error
+			if !isInitial {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-ticker.C:
+				}
 			}
 			continue
 		}
 
 		lastUpdate = time.Now()
 		currentRuns = runs
+		
 
 		allCompleted := true
+		hasNewCompletions := false
+		
 		for _, run := range runs {
 			previous, exists := knownRuns[run.ID]
 			knownRuns[run.ID] = run
@@ -102,7 +126,9 @@ func (u *MonitorUseCase) Execute(ctx context.Context) error {
 			if !completedRuns[run.ID] {
 				completedRuns[run.ID] = true
 
-				if !exists || previous.Status != model.WorkflowStatusCompleted {
+				// Only notify on status change, not on first discovery of already completed runs
+				if exists && previous.Status != model.WorkflowStatusCompleted {
+					hasNewCompletions = true
 					switch run.Conclusion {
 					case model.WorkflowConclusionSuccess:
 						if err := u.notifier.NotifySuccess(ctx, run); err != nil {
@@ -125,25 +151,40 @@ func (u *MonitorUseCase) Execute(ctx context.Context) error {
 			u.display.Update(runs, lastUpdate, u.config.Interval)
 		}
 
+		// Exit when all workflows are completed
+		// For initial check: exit immediately if all are already completed
+		// For subsequent checks: only exit if there were new completions
 		if allCompleted && len(runs) > 0 {
-			summary := u.buildSummary(runs, startTime)
-			if err := u.notifier.NotifyComplete(ctx, summary); err != nil {
-				u.logger.Warn("failed to notify completion",
-					slog.String("error", err.Error()),
-				)
+			if isInitial || hasNewCompletions {
+				summary := u.buildSummary(runs, startTime)
+				if err := u.notifier.NotifyComplete(ctx, summary); err != nil {
+					u.logger.Warn("failed to notify completion",
+						slog.String("error", err.Error()),
+					)
+				}
+				return nil
 			}
-			return nil
 		}
 
-		if len(runs) == 0 {
+		// Only show waiting message after first check if no runs found
+		if len(runs) == 0 && !isInitial {
 			if u.display != nil {
 				u.display.ShowWaiting(u.config.CommitSHA, u.config.Repo.FullName())
 			}
 		}
 
-		// Only wait for ticker if this wasn't the initial run
-		if ticker != nil {
-			<-ticker.C
+		// Mark initial check as done
+		if isInitial {
+			initialCheck = false
+		}
+
+		// Wait for next interval (skip on initial run)
+		if !isInitial {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-ticker.C:
+			}
 		}
 	}
 }

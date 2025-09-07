@@ -38,24 +38,13 @@ func (n *SoundNotifier) NotifyFailure(ctx context.Context, workflow *model.Workf
 }
 
 func (n *SoundNotifier) NotifyComplete(ctx context.Context, summary *model.Summary) error {
-	fmt.Printf("\n")
-	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-	fmt.Printf("🎉 All workflows completed!\n")
-	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-	fmt.Printf("Total runs: %d\n", summary.TotalRuns)
-	fmt.Printf("✅ Success: %d\n", summary.SuccessCount)
+	// Simple completion message
+	fmt.Printf("\n✨ All workflows completed ")
 	if summary.FailureCount > 0 {
-		fmt.Printf("❌ Failed: %d\n", summary.FailureCount)
-	}
-	if summary.OtherCount > 0 {
-		fmt.Printf("⚠️  Other: %d\n", summary.OtherCount)
-	}
-	fmt.Printf("Duration: %s\n", summary.Duration)
-	fmt.Printf("\n")
-
-	if summary.FailureCount > 0 {
+		fmt.Printf("with %d failure(s)\n", summary.FailureCount)
 		return n.playSystemSound(false)
 	}
+	fmt.Printf("successfully!\n")
 	return n.playSystemSound(true)
 }
 

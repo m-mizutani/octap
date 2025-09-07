@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/m-mizutani/octap/pkg/domain"
 	"github.com/m-mizutani/octap/pkg/domain/interfaces"
@@ -13,6 +14,9 @@ import (
 )
 
 func RunMonitor(ctx context.Context, cmd *cli.Command) error {
+	// Create cancellable context for immediate shutdown
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	logLevel := slog.LevelWarn
 	if cmd.Bool("debug") {
 		logLevel = slog.LevelDebug
@@ -41,8 +45,16 @@ func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 	if commitSHA == "" {
 		commitSHA, err = githubService.GetCurrentCommit(ctx, currentDir)
 		if err != nil {
+			// More user-friendly error message
+			if strings.Contains(err.Error(), "has not been pushed") {
+				return fmt.Errorf("⚠️  Current commit has not been pushed to GitHub.\nPlease push your commits first: git push")
+			}
 			return fmt.Errorf("failed to get current commit: %w", err)
 		}
+		logger.Debug("Got current commit SHA",
+			slog.String("sha", commitSHA),
+			slog.Int("length", len(commitSHA)),
+		)
 	}
 
 	if len(commitSHA) < 7 {
@@ -63,7 +75,7 @@ func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 		notifier = usecase.NewSoundNotifier(logger)
 	}
 
-	display := NewTUIDisplay(repo.FullName(), commitSHA, config.Interval)
+	display := NewInlineDisplayManager(repo.FullName(), commitSHA)
 
 	monitor := usecase.NewMonitorUseCase(usecase.MonitorUseCaseOptions{
 		GitHub:   githubService,
@@ -73,23 +85,35 @@ func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 		Logger:   logger,
 	})
 
-	// Run TUI and monitor concurrently
-	tuiDisplay, ok := display.(*TUIDisplay)
-	if !ok {
-		return fmt.Errorf("failed to cast display to TUIDisplay")
-	}
+	// Display initial status
+	fmt.Printf("🚀 Starting octap monitor\n")
+	fmt.Printf("Repository: %s | Commit: %s | Interval: %s\n", 
+		repo.FullName(), commitSHA[:8], config.Interval)
 
-	// Start monitor in background
+	// Clean shutdown on context cancellation
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- monitor.Execute(ctx)
 	}()
 
-	// Start TUI
-	go func() {
-		errCh <- tuiDisplay.Run()
-	}()
-
-	// Wait for either to finish
-	return <-errCh
+	// Handle immediate shutdown
+	select {
+	case <-ctx.Done():
+		// Stop spinner if running
+		if inlineDisplay, ok := display.(*InlineDisplayManager); ok {
+			inlineDisplay.Stop()
+		}
+		fmt.Printf("\n\n🛑 Monitoring stopped\n")
+		return nil
+	case err := <-errCh:
+		// Stop spinner if running
+		if inlineDisplay, ok := display.(*InlineDisplayManager); ok {
+			inlineDisplay.Stop()
+		}
+		if err != nil && err != context.Canceled {
+			return err
+		}
+		fmt.Printf("\n\n✅ Monitoring completed\n")
+		return nil
+	}
 }
