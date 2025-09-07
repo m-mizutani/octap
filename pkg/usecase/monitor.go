@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -47,119 +48,143 @@ func (u *MonitorUseCase) Execute(ctx context.Context) error {
 		slog.Duration("interval", u.config.Interval),
 	)
 
-	ticker := time.NewTicker(u.config.Interval)
-	defer ticker.Stop()
+	// Create main ticker for polling interval
+	pollTicker := time.NewTicker(u.config.Interval)
+	defer pollTicker.Stop()
 
-	// Perform initial check immediately
-	initialCheck := true
+	// Create countdown ticker for UI updates (10 updates per second)
+	countdownTicker := time.NewTicker(100 * time.Millisecond)
+	defer countdownTicker.Stop()
+
+	// Channel to trigger immediate check
+	checkNow := make(chan struct{}, 1)
+	
+	// Trigger initial check
+	checkNow <- struct{}{}
 
 	for {
-		// Check if this is the initial run
-		isInitial := initialCheck
-
-		// Perform the check
-		if isInitial || time.Since(lastUpdate) >= u.config.Interval {
-			runs, err := u.github.GetWorkflowRuns(ctx, u.config.Repo, u.config.CommitSHA)
-			if err != nil {
-				logger.Error("failed to get workflow runs",
-					slog.String("error", err.Error()),
-				)
-				if domain.ErrAuthentication.Is(err) {
-					return err
-				}
-				time.Sleep(1 * time.Second)
-				continue
-			}
-
-			lastUpdate = time.Now()
-
-			// Collect newly completed workflows for notifications
-			var newlyCompleted []*model.WorkflowRun
-
-			allCompleted := true
-			hasNewCompletions := false
-
-			for _, run := range runs {
-				previous, exists := knownRuns[run.ID]
-				knownRuns[run.ID] = run
-
-				if run.Status != model.WorkflowStatusCompleted {
-					allCompleted = false
-					continue
-				}
-
-				if !completedRuns[run.ID] {
-					completedRuns[run.ID] = true
-
-					// Check if this is a new completion (status change)
-					if exists && previous.Status != model.WorkflowStatusCompleted {
-						hasNewCompletions = true
-						newlyCompleted = append(newlyCompleted, run)
-					}
-				}
-			}
-
-			// Update display in main flow
-			if u.display != nil {
-				u.display.Update(runs, lastUpdate, u.config.Interval)
-			}
-
-			// Handle sound notifications in background goroutines (non-blocking)
-			for _, workflow := range newlyCompleted {
-				go u.handleWorkflowNotification(ctx, workflow)
-			}
-
-			// Exit when all workflows are completed
-			// For initial check: exit immediately if all are already completed
-			// For subsequent checks: only exit if there were new completions
-			if allCompleted && len(runs) > 0 {
-				if isInitial || hasNewCompletions {
-					// Show final summary if display supports it
-					if extDisplay, ok := u.display.(interfaces.ExtendedDisplay); ok {
-						extDisplay.ShowFinalSummary()
-					}
-
-					summary := u.buildSummary(runs, startTime)
-					if err := u.notifier.NotifyComplete(ctx, summary); err != nil {
-						logger.Warn("failed to notify completion",
-							slog.String("error", err.Error()),
-						)
-					}
-					return nil
-				}
-			}
-
-			// Only show waiting message after first check if no runs found
-			if len(runs) == 0 && !isInitial {
-				if u.display != nil {
-					u.display.ShowWaiting(u.config.CommitSHA, u.config.Repo.FullName())
-				}
-			}
-
-			// Mark initial check as done
-			if isInitial {
-				initialCheck = false
-			}
-		}
-
-		// Show countdown timer
-		remaining := u.config.Interval - time.Since(lastUpdate)
-		if remaining > 0 {
-			if extDisplay, ok := u.display.(interfaces.ExtendedDisplay); ok {
-				extDisplay.ShowCountdown(remaining)
-			}
-		}
-
-		// Check for cancellation
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		default:
+
+		case <-checkNow:
+			// Immediate check (used for initial check)
+			if err := u.performCheck(ctx, &knownRuns, &completedRuns, &lastUpdate, startTime, true); err != nil {
+				if err == errAllCompleted {
+					return nil
+				}
+				return err
+			}
+
+		case <-pollTicker.C:
+			// Regular interval check
+			if err := u.performCheck(ctx, &knownRuns, &completedRuns, &lastUpdate, startTime, false); err != nil {
+				if err == errAllCompleted {
+					return nil
+				}
+				return err
+			}
+
+		case <-countdownTicker.C:
+			// Update countdown display
+			remaining := u.config.Interval - time.Since(lastUpdate)
+			if remaining > 0 {
+				if extDisplay, ok := u.display.(interfaces.ExtendedDisplay); ok {
+					extDisplay.ShowCountdown(remaining)
+				}
+			}
+		}
+	}
+}
+
+// Sentinel error to signal successful completion
+var errAllCompleted = errors.New("all workflows completed")
+
+func (u *MonitorUseCase) performCheck(
+	ctx context.Context,
+	knownRuns *map[int64]*model.WorkflowRun,
+	completedRuns *map[int64]bool,
+	lastUpdate *time.Time,
+	startTime time.Time,
+	isInitial bool,
+) error {
+	logger := ctxlog.From(ctx)
+	
+	runs, err := u.github.GetWorkflowRuns(ctx, u.config.Repo, u.config.CommitSHA)
+	if err != nil {
+		logger.Error("failed to get workflow runs",
+			slog.String("error", err.Error()),
+		)
+		if domain.ErrAuthentication.Is(err) {
+			return err
+		}
+		// Don't update lastUpdate on error
+		return nil
+	}
+
+	*lastUpdate = time.Now()
+
+	// Collect newly completed workflows for notifications
+	var newlyCompleted []*model.WorkflowRun
+	allCompleted := true
+	hasNewCompletions := false
+
+	for _, run := range runs {
+		previous, exists := (*knownRuns)[run.ID]
+		(*knownRuns)[run.ID] = run
+
+		if run.Status != model.WorkflowStatusCompleted {
+			allCompleted = false
+			continue
 		}
 
-		// Sleep briefly to update countdown
-		time.Sleep(100 * time.Millisecond)
+		if !(*completedRuns)[run.ID] {
+			(*completedRuns)[run.ID] = true
+
+			// Check if this is a new completion (status change)
+			if exists && previous.Status != model.WorkflowStatusCompleted {
+				hasNewCompletions = true
+				newlyCompleted = append(newlyCompleted, run)
+			}
+		}
 	}
+
+	// Update display
+	if u.display != nil {
+		u.display.Update(runs, *lastUpdate, u.config.Interval)
+	}
+
+	// Handle sound notifications in background goroutines (non-blocking)
+	for _, workflow := range newlyCompleted {
+		go u.handleWorkflowNotification(ctx, workflow)
+	}
+
+	// Exit when all workflows are completed
+	if allCompleted && len(runs) > 0 {
+		if isInitial || hasNewCompletions {
+			// Show final summary if display supports it
+			if extDisplay, ok := u.display.(interfaces.ExtendedDisplay); ok {
+				extDisplay.ShowFinalSummary()
+			}
+
+			summary := u.buildSummary(runs, startTime)
+			if err := u.notifier.NotifyComplete(ctx, summary); err != nil {
+				logger.Warn("failed to notify completion",
+					slog.String("error", err.Error()),
+				)
+			}
+			return errAllCompleted
+		}
+	}
+
+	// Show waiting message if no runs found
+	if len(runs) == 0 && !isInitial {
+		if u.display != nil {
+			u.display.ShowWaiting(u.config.CommitSHA, u.config.Repo.FullName())
+		}
+	}
+
+	return nil
 }
 
 func (u *MonitorUseCase) buildSummary(runs []*model.WorkflowRun, startTime time.Time) *model.Summary {

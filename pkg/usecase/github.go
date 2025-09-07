@@ -72,25 +72,21 @@ func (s *GitHubService) GetRepositoryInfo(ctx context.Context, repoPath string) 
 func parseGitHubURL(url string) (owner, repo string) {
 	url = strings.TrimSuffix(url, ".git")
 
-	if strings.HasPrefix(url, "git@github.com:") {
-		parts := strings.Split(strings.TrimPrefix(url, "git@github.com:"), "/")
-		if len(parts) == 2 {
-			return parts[0], parts[1]
-		}
+	var path string
+	switch {
+	case strings.HasPrefix(url, "git@github.com:"):
+		path = strings.TrimPrefix(url, "git@github.com:")
+	case strings.HasPrefix(url, "https://github.com/"):
+		path = strings.TrimPrefix(url, "https://github.com/")
+	case strings.HasPrefix(url, "ssh://git@github.com/"):
+		path = strings.TrimPrefix(url, "ssh://git@github.com/")
+	default:
+		return "", ""
 	}
 
-	if strings.HasPrefix(url, "https://github.com/") {
-		parts := strings.Split(strings.TrimPrefix(url, "https://github.com/"), "/")
-		if len(parts) == 2 {
-			return parts[0], parts[1]
-		}
-	}
-
-	if strings.HasPrefix(url, "ssh://git@github.com/") {
-		parts := strings.Split(strings.TrimPrefix(url, "ssh://git@github.com/"), "/")
-		if len(parts) == 2 {
-			return parts[0], parts[1]
-		}
+	parts := strings.SplitN(path, "/", 2)
+	if len(parts) == 2 {
+		return parts[0], parts[1]
 	}
 
 	return "", ""
@@ -98,12 +94,8 @@ func parseGitHubURL(url string) (owner, repo string) {
 
 func (s *GitHubService) GetWorkflowRuns(ctx context.Context, repo model.Repository, commitSHA string) ([]*model.WorkflowRun, error) {
 	logger := ctxlog.From(ctx)
-	authSvc, ok := s.authService.(*AuthService)
-	if !ok {
-		return nil, domain.ErrConfiguration.Wrap(goerr.New("invalid auth service type"))
-	}
-
-	client, err := authSvc.GetAuthenticatedClient(ctx)
+	
+	client, err := s.authService.GetAuthenticatedClient(ctx)
 	if err != nil {
 		return nil, err
 	}
