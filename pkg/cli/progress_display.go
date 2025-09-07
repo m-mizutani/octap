@@ -56,7 +56,7 @@ func (d *ProgressDisplayManager) Update(runs []*model.WorkflowRun, lastUpdate ti
 		d.totalCount = len(newRuns)
 		
 		if len(newRuns) == 0 {
-			fmt.Println("No workflows found for this commit")
+			fmt.Printf("⏳ Waiting for workflows to start for commit %s...\n", d.commitSHA[:8])
 			return
 		}
 		

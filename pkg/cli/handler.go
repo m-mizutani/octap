@@ -85,10 +85,6 @@ func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 		Logger:   logger,
 	})
 
-	// Display initial status
-	fmt.Printf("🚀 Starting octap monitor\n")
-	fmt.Printf("Repository: %s | Commit: %s | Interval: %s\n", 
-		repo.FullName(), commitSHA[:8], config.Interval)
 
 	// Run monitor
 	err = monitor.Execute(ctx)

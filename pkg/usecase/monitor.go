@@ -74,6 +74,9 @@ func (u *MonitorUseCase) Execute(ctx context.Context) error {
 
 			lastUpdate = time.Now()
 
+			// Collect newly completed workflows for notifications
+			var newlyCompleted []*model.WorkflowRun
+			
 			allCompleted := true
 			hasNewCompletions := false
 			
@@ -89,29 +92,22 @@ func (u *MonitorUseCase) Execute(ctx context.Context) error {
 				if !completedRuns[run.ID] {
 					completedRuns[run.ID] = true
 
-					// Only notify on status change, not on first discovery of already completed runs
+					// Check if this is a new completion (status change)
 					if exists && previous.Status != model.WorkflowStatusCompleted {
 						hasNewCompletions = true
-						switch run.Conclusion {
-						case model.WorkflowConclusionSuccess:
-							if err := u.notifier.NotifySuccess(ctx, run); err != nil {
-								u.logger.Warn("failed to notify success",
-									slog.String("error", err.Error()),
-								)
-							}
-						case model.WorkflowConclusionFailure:
-							if err := u.notifier.NotifyFailure(ctx, run); err != nil {
-								u.logger.Warn("failed to notify failure",
-									slog.String("error", err.Error()),
-								)
-							}
-						}
+						newlyCompleted = append(newlyCompleted, run)
 					}
 				}
 			}
 
+			// Update display in main flow
 			if u.display != nil {
 				u.display.Update(runs, lastUpdate, u.config.Interval)
+			}
+
+			// Handle sound notifications in background goroutines (non-blocking)
+			for _, workflow := range newlyCompleted {
+				go u.handleWorkflowNotification(ctx, workflow)
 			}
 
 			// Exit when all workflows are completed
@@ -185,4 +181,21 @@ func (u *MonitorUseCase) buildSummary(runs []*model.WorkflowRun, startTime time.
 	}
 
 	return summary
+}
+
+func (u *MonitorUseCase) handleWorkflowNotification(ctx context.Context, workflow *model.WorkflowRun) {
+	switch workflow.Conclusion {
+	case model.WorkflowConclusionSuccess:
+		if err := u.notifier.NotifySuccess(ctx, workflow); err != nil {
+			u.logger.Warn("failed to notify success",
+				slog.String("error", err.Error()),
+			)
+		}
+	case model.WorkflowConclusionFailure:
+		if err := u.notifier.NotifyFailure(ctx, workflow); err != nil {
+			u.logger.Warn("failed to notify failure",
+				slog.String("error", err.Error()),
+			)
+		}
+	}
 }
