@@ -44,39 +44,46 @@ func (n *SoundNotifier) NotifyComplete(ctx context.Context, summary *model.Summa
 
 func (n *SoundNotifier) playSystemSound(ctx context.Context, success bool) error {
 	logger := ctxlog.From(ctx)
-	var cmd *exec.Cmd
 
 	switch runtime.GOOS {
 	case "darwin":
+		var soundFile string
 		if success {
-			cmd = exec.Command("afplay", "/System/Library/Sounds/Glass.aiff")
+			soundFile = "/System/Library/Sounds/Glass.aiff"
 		} else {
-			cmd = exec.Command("afplay", "/System/Library/Sounds/Basso.aiff")
+			soundFile = "/System/Library/Sounds/Basso.aiff"
 		}
-	case "linux":
-		soundFile := "complete"
-		if !success {
-			soundFile = "dialog-error"
-		}
-		cmd = exec.Command("paplay", "/usr/share/sounds/freedesktop/stereo/"+soundFile+".oga")
-		if err := cmd.Run(); err != nil {
-			cmd = exec.Command("aplay", "/usr/share/sounds/alsa/Front_Center.wav")
-		}
-	case "windows":
-		return nil
-	default:
-		logger.Warn("sound notification not supported on this platform",
-			slog.String("os", runtime.GOOS),
-		)
-		return nil
-	}
-
-	if cmd != nil {
+		cmd := exec.Command("afplay", soundFile)
 		if err := cmd.Run(); err != nil {
 			logger.Warn("failed to play sound",
 				slog.String("error", err.Error()),
 			)
 		}
+
+	case "linux":
+		soundFile := "complete"
+		if !success {
+			soundFile = "dialog-error"
+		}
+		cmd := exec.Command("paplay", "/usr/share/sounds/freedesktop/stereo/"+soundFile+".oga")
+		if err := cmd.Run(); err != nil {
+			// paplay failed, try aplay
+			cmd = exec.Command("aplay", "/usr/share/sounds/alsa/Front_Center.wav")
+			if err := cmd.Run(); err != nil {
+				logger.Warn("failed to play sound with both paplay and aplay",
+					slog.String("error", err.Error()),
+				)
+			}
+		}
+
+	case "windows":
+		// Sound not supported on Windows
+		return nil
+
+	default:
+		logger.Warn("sound notification not supported on this platform",
+			slog.String("os", runtime.GOOS),
+		)
 	}
 
 	return nil
