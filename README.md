@@ -1,12 +1,5 @@
 # octap
-
-[![Test](https://github.com/m-mizutani/octap/actions/workflows/test.yml/badge.svg)](https://github.com/m-mizutani/octap/actions/workflows/test.yml)
-[![Build](https://github.com/m-mizutani/octap/actions/workflows/build.yml/badge.svg)](https://github.com/m-mizutani/octap/actions/workflows/build.yml)
-[![Lint](https://github.com/m-mizutani/octap/actions/workflows/lint.yml/badge.svg)](https://github.com/m-mizutani/octap/actions/workflows/lint.yml)
-[![Security](https://github.com/m-mizutani/octap/actions/workflows/gosec.yml/badge.svg)](https://github.com/m-mizutani/octap/actions/workflows/gosec.yml)
-[![Trivy](https://github.com/m-mizutani/octap/actions/workflows/trivy.yml/badge.svg)](https://github.com/m-mizutani/octap/actions/workflows/trivy.yml)
-[![CodeQL](https://github.com/m-mizutani/octap/actions/workflows/codeql.yml/badge.svg)](https://github.com/m-mizutani/octap/actions/workflows/codeql.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/m-mizutani/octap)](https://goreportcard.com/report/github.com/m-mizutani/octap)
+[![Test](https://github.com/m-mizutani/octap/actions/workflows/test.yml/badge.svg)](https://github.com/m-mizutani/octap/actions/workflows/test.yml) [![Build](https://github.com/m-mizutani/octap/actions/workflows/build.yml/badge.svg)](https://github.com/m-mizutani/octap/actions/workflows/build.yml) [![Lint](https://github.com/m-mizutani/octap/actions/workflows/lint.yml/badge.svg)](https://github.com/m-mizutani/octap/actions/workflows/lint.yml) [![Security](https://github.com/m-mizutani/octap/actions/workflows/gosec.yml/badge.svg)](https://github.com/m-mizutani/octap/actions/workflows/gosec.yml) [![Trivy](https://github.com/m-mizutani/octap/actions/workflows/trivy.yml/badge.svg)](https://github.com/m-mizutani/octap/actions/workflows/trivy.yml) [![CodeQL](https://github.com/m-mizutani/octap/actions/workflows/codeql.yml/badge.svg)](https://github.com/m-mizutani/octap/actions/workflows/codeql.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/m-mizutani/octap)](https://goreportcard.com/report/github.com/m-mizutani/octap)
 
 CLI GitHub Actions notifier - Monitor and notify when GitHub Actions workflows complete.
 
@@ -19,7 +12,7 @@ CLI GitHub Actions notifier - Monitor and notify when GitHub Actions workflows c
 - 🔔 **Sound notifications** - Different sounds for success/failure
 - 📊 **Live CUI display** - See workflow status in real-time
 - ⏱️ **Configurable polling** - Adjust check intervals
-- 🔐 **Secure authentication** - GitHub personal access token support
+- 🔐 **Secure authentication** - GitHub OAuth Device Flow (no token management needed)
 
 ## Installation
 
