@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os/exec"
 	"runtime"
@@ -38,13 +37,9 @@ func (n *SoundNotifier) NotifyFailure(ctx context.Context, workflow *model.Workf
 }
 
 func (n *SoundNotifier) NotifyComplete(ctx context.Context, summary *model.Summary) error {
-	// Simple completion message
-	fmt.Printf("\n✨ All workflows completed ")
 	if summary.FailureCount > 0 {
-		fmt.Printf("with %d failure(s)\n", summary.FailureCount)
 		return n.playSystemSound(false)
 	}
-	fmt.Printf("successfully!\n")
 	return n.playSystemSound(true)
 }
 

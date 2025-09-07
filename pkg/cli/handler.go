@@ -75,7 +75,7 @@ func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 		notifier = usecase.NewSoundNotifier(logger)
 	}
 
-	display := NewProgressDisplayManager(repo.FullName(), commitSHA)
+	display := NewDisplayManager(repo.FullName(), commitSHA)
 
 	monitor := usecase.NewMonitorUseCase(usecase.MonitorUseCaseOptions{
 		GitHub:   githubService,
