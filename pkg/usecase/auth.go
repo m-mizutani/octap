@@ -22,7 +22,7 @@ import (
 const (
 	// GitHub Device Flow endpoints
 	deviceCodeURL = "https://github.com/login/device/code"
-	tokenURL      = "https://github.com/login/oauth/access_token"
+	tokenURL      = "https://github.com/login/oauth/access_token" // #nosec G101 - This is not a credential, it's a public API endpoint
 )
 
 type deviceCodeResponse struct {
@@ -191,7 +191,7 @@ func (s *AuthService) pollForToken(ctx context.Context, deviceCode *deviceCodeRe
 			}
 
 			body, err := io.ReadAll(resp.Body)
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if err != nil {
 				logger := ctxlog.From(ctx)
 				logger.Debug("error reading response", slog.String("error", err.Error()))

@@ -161,13 +161,13 @@ func (d *DisplayManager) ShowFinalSummary() {
 
 	fmt.Printf("📊 Results: ")
 	if successCount > 0 {
-		color.New(color.FgGreen).Printf("✅ %d success ", successCount)
+		_, _ = color.New(color.FgGreen).Printf("✅ %d success ", successCount)
 	}
 	if failureCount > 0 {
-		color.New(color.FgRed).Printf("❌ %d failed ", failureCount)
+		_, _ = color.New(color.FgRed).Printf("❌ %d failed ", failureCount)
 	}
 	if otherCount > 0 {
-		color.New(color.FgYellow).Printf("⚠️  %d other", otherCount)
+		_, _ = color.New(color.FgYellow).Printf("⚠️  %d other", otherCount)
 	}
 	fmt.Println()
 }
@@ -194,7 +194,7 @@ func (d *DisplayManager) printWorkflowLine(run *model.WorkflowRun) {
 	}
 
 	fmt.Printf("%s ", icon)
-	statusColor.Printf("%-20s %s", run.Name, statusText)
+	_, _ = statusColor.Printf("%-20s %s", run.Name, statusText)
 
 	// Show URL for failed workflows
 	if run.Status == model.WorkflowStatusCompleted && run.Conclusion == model.WorkflowConclusionFailure {

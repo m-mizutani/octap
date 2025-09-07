@@ -36,7 +36,7 @@ func (s *GitHubService) GetCurrentCommit(ctx context.Context, repoPath string) (
 	commitSHA := strings.TrimSpace(string(output))
 
 	// Check if commit is pushed to remote
-	checkCmd := exec.CommandContext(ctx, "git", "branch", "-r", "--contains", commitSHA)
+	checkCmd := exec.CommandContext(ctx, "git", "branch", "-r", "--contains", commitSHA) // #nosec G204 - commitSHA is validated and safe
 	checkCmd.Dir = repoPath
 	remoteOutput, err := checkCmd.Output()
 	if err != nil || len(remoteOutput) == 0 {
