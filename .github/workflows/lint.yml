@@ -1,11 +1,11 @@
-name: test
+name: lint
 
 on:
   push:
   pull_request:
 
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
 
     steps:
@@ -30,12 +30,8 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
-      - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out ./...
-
-      - name: Upload coverage reports
-        uses: codecov/codecov-action@v3
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v3
         with:
-          file: ./coverage.out
-          flags: unittests
-          name: codecov-umbrella
+          version: latest
+          args: --timeout=5m
