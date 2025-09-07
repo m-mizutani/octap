@@ -26,7 +26,6 @@ func (n *SoundNotifier) NotifySuccess(ctx context.Context, workflow *model.Workf
 		slog.String("name", workflow.Name),
 		slog.Int64("id", workflow.ID),
 	)
-	fmt.Printf("✅ %s completed successfully\n", workflow.Name)
 	return n.playSystemSound(true)
 }
 
@@ -35,7 +34,6 @@ func (n *SoundNotifier) NotifyFailure(ctx context.Context, workflow *model.Workf
 		slog.String("name", workflow.Name),
 		slog.Int64("id", workflow.ID),
 	)
-	fmt.Printf("❌ %s failed\n", workflow.Name)
 	return n.playSystemSound(false)
 }
 

@@ -40,6 +40,8 @@ func (u *MonitorUseCase) Execute(ctx context.Context) error {
 	startTime := time.Now()
 	knownRuns := make(map[int64]*model.WorkflowRun)
 	completedRuns := make(map[int64]bool)
+	var lastUpdate time.Time
+	var currentRuns []*model.WorkflowRun
 
 	u.logger.Debug("starting monitor",
 		slog.String("repo", u.config.Repo.FullName()),
@@ -50,11 +52,24 @@ func (u *MonitorUseCase) Execute(ctx context.Context) error {
 	ticker := time.NewTicker(u.config.Interval)
 	defer ticker.Stop()
 
+	// Add 1-second refresh ticker for display updates
+	refreshTicker := time.NewTicker(1 * time.Second)
+	defer refreshTicker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+		case <-refreshTicker.C:
+			// Refresh display with current data every second
+			if u.display != nil && len(currentRuns) > 0 {
+				u.display.Update(currentRuns, lastUpdate, u.config.Interval)
+			}
+			continue
+		case <-ticker.C:
+			// Main polling logic
 		default:
+			// Initial run
 		}
 
 		runs, err := u.github.GetWorkflowRuns(ctx, u.config.Repo, u.config.CommitSHA)
@@ -65,9 +80,14 @@ func (u *MonitorUseCase) Execute(ctx context.Context) error {
 			if domain.ErrAuthentication.Is(err) {
 				return err
 			}
-			<-ticker.C
+			if ticker != nil {
+				<-ticker.C
+			}
 			continue
 		}
+
+		lastUpdate = time.Now()
+		currentRuns = runs
 
 		allCompleted := true
 		for _, run := range runs {
@@ -102,7 +122,7 @@ func (u *MonitorUseCase) Execute(ctx context.Context) error {
 		}
 
 		if u.display != nil {
-			u.display.Update(runs, time.Now(), u.config.Interval)
+			u.display.Update(runs, lastUpdate, u.config.Interval)
 		}
 
 		if allCompleted && len(runs) > 0 {
@@ -121,7 +141,10 @@ func (u *MonitorUseCase) Execute(ctx context.Context) error {
 			}
 		}
 
-		<-ticker.C
+		// Only wait for ticker if this wasn't the initial run
+		if ticker != nil {
+			<-ticker.C
+		}
 	}
 }
 

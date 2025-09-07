@@ -14,6 +14,8 @@ type DisplayManager struct {
 	commitSHA    string
 	lastRunNames []string
 	initialized  bool
+	hasWorkflows bool
+	showingWait  bool
 }
 
 func NewDisplayManager(repoName, commitSHA string) interfaces.Display {
@@ -29,31 +31,54 @@ func (d *DisplayManager) Clear() {
 
 func (d *DisplayManager) Update(runs []*model.WorkflowRun, lastUpdate time.Time, interval time.Duration) {
 	if len(runs) == 0 {
-		if !d.initialized {
+		if !d.showingWait {
 			fmt.Printf("⏳ No workflow runs found yet... (last checked: %s)\n", 
 				lastUpdate.Format("15:04:05"))
-			d.initialized = true
+			d.showingWait = true
+		} else {
+			// Update the wait message with current time
+			fmt.Printf("\033[1A\033[2K⏳ No workflow runs found yet... (last checked: %s)\n", 
+				lastUpdate.Format("15:04:05"))
 		}
 		return
 	}
 
-	// Create current run names slice
-	currentRunNames := make([]string, len(runs))
-	for i, run := range runs {
-		currentRunNames[i] = run.Name
+	// If we have workflows now but were showing wait message, clear it
+	if d.showingWait {
+		fmt.Printf("\033[1A\033[2K") // Clear the wait message line
+		d.showingWait = false
 	}
 
+	// Deduplicate runs by name (keep the latest one)
+	runMap := make(map[string]*model.WorkflowRun)
+	for _, run := range runs {
+		existing, exists := runMap[run.Name]
+		if !exists || run.UpdatedAt.After(existing.UpdatedAt) {
+			runMap[run.Name] = run
+		}
+	}
+	
+	// Convert back to slice and create run names
+	uniqueRuns := make([]*model.WorkflowRun, 0, len(runMap))
+	currentRunNames := make([]string, 0, len(runMap))
+	for name, run := range runMap {
+		uniqueRuns = append(uniqueRuns, run)
+		currentRunNames = append(currentRunNames, name)
+	}
+	runs = uniqueRuns
+
 	// If this is first time or workflow list changed, print headers
-	if !d.initialized || !d.sameWorkflows(currentRunNames) {
-		if d.initialized {
+	if !d.hasWorkflows || !d.sameWorkflows(currentRunNames) {
+		if d.hasWorkflows {
 			// Move cursor up to overwrite previous lines
 			fmt.Printf("\033[%dA", len(d.lastRunNames))
 		}
 		d.lastRunNames = currentRunNames
+		d.hasWorkflows = true
 		d.initialized = true
 	} else {
-		// Move cursor up to overwrite previous lines
-		fmt.Printf("\033[%dA", len(runs))
+		// Move cursor up to overwrite previous lines + status line
+		fmt.Printf("\033[%dA", len(runs)+1)
 	}
 
 	// Show workflow status in one line per workflow
@@ -65,6 +90,20 @@ func (d *DisplayManager) Update(runs []*model.WorkflowRun, lastUpdate time.Time,
 		// Clear line and print status
 		fmt.Printf("\033[2K%s %s %s %s\n",
 			statusIcon, run.Name, statusText, timeInfo)
+	}
+
+	// Show current time and next check info
+	now := time.Now()
+	nextCheck := time.Until(lastUpdate.Add(interval))
+	if nextCheck > 0 {
+		fmt.Printf("\033[2KNow: %s | Last check: %s | Next in: %s\n",
+			now.Format("15:04:05"),
+			lastUpdate.Format("15:04:05"),
+			nextCheck.Round(time.Second))
+	} else {
+		fmt.Printf("\033[2KNow: %s | Last check: %s | Checking...\n",
+			now.Format("15:04:05"),
+			lastUpdate.Format("15:04:05"))
 	}
 }
 

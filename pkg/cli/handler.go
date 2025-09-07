@@ -63,7 +63,7 @@ func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 		notifier = usecase.NewSoundNotifier(logger)
 	}
 
-	display := NewDisplayManager(repo.FullName(), commitSHA)
+	display := NewTUIDisplay(repo.FullName(), commitSHA, config.Interval)
 
 	monitor := usecase.NewMonitorUseCase(usecase.MonitorUseCaseOptions{
 		GitHub:   githubService,
@@ -73,11 +73,23 @@ func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 		Logger:   logger,
 	})
 
-	// Display initial status instead of logging
-	fmt.Printf("\n🚀 Starting octap monitor\n")
-	fmt.Printf("Repository: %s\n", repo.FullName())
-	fmt.Printf("Commit: %s\n", commitSHA[:8])
-	fmt.Printf("Interval: %s\n\n", config.Interval)
+	// Run TUI and monitor concurrently
+	tuiDisplay, ok := display.(*TUIDisplay)
+	if !ok {
+		return fmt.Errorf("failed to cast display to TUIDisplay")
+	}
 
-	return monitor.Execute(ctx)
+	// Start monitor in background
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- monitor.Execute(ctx)
+	}()
+
+	// Start TUI
+	go func() {
+		errCh <- tuiDisplay.Run()
+	}()
+
+	// Wait for either to finish
+	return <-errCh
 }
