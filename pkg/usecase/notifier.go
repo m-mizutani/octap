@@ -217,3 +217,14 @@ func (n *NoOpNotifier) NotifyComplete(ctx context.Context, summary *model.Summar
 func (n *NoOpNotifier) SetConfig(config *model.Config) {
 	// NoOp
 }
+
+func (n *NoOpNotifier) WaitForPendingActions() {
+	// NoOp - no actions to wait for
+}
+
+// WaitForPendingActions waits for all pending hook actions to complete.
+func (n *SoundNotifier) WaitForPendingActions() {
+	if n.hookExecutor != nil {
+		n.hookExecutor.WaitForCompletion()
+	}
+}

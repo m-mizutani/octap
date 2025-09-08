@@ -9,6 +9,9 @@ import (
 // HookExecutor executes hooks based on workflow events
 type HookExecutor interface {
 	Execute(ctx context.Context, event model.WorkflowEvent) error
+	// WaitForCompletion waits for all pending actions to complete.
+	// This should be called only when the process is about to exit.
+	WaitForCompletion()
 }
 
 // ActionExecutor executes a specific action
