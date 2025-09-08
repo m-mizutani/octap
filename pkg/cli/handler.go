@@ -80,6 +80,32 @@ func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 		notifier = usecase.NewSoundNotifier()
 	}
 
+	// Load configuration file if specified
+	configPath := cmd.String("config")
+	if configPath != "" {
+		configService := usecase.NewConfigService()
+		appConfig, err := configService.Load(configPath)
+		if err != nil {
+			logger.Warn("Failed to load configuration file, using defaults",
+				slog.String("path", configPath),
+				slog.String("error", err.Error()),
+			)
+		} else {
+			notifier.SetConfig(appConfig)
+			logger.Info("Loaded configuration file",
+				slog.String("path", configPath),
+			)
+		}
+	} else {
+		// Try to load default config
+		configService := usecase.NewConfigService()
+		appConfig, err := configService.LoadDefault()
+		if err == nil && appConfig != nil {
+			notifier.SetConfig(appConfig)
+			logger.Debug("Loaded default configuration file")
+		}
+	}
+
 	display := NewDisplayManager(repo.FullName(), commitSHA)
 
 	monitor := usecase.NewMonitorUseCase(usecase.MonitorUseCaseOptions{

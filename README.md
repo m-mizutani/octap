@@ -13,6 +13,9 @@ CLI GitHub Actions notifier - Monitor and notify when GitHub Actions workflows c
 - 📊 **Live CUI display** - See workflow status in real-time
 - ⏱️ **Configurable polling** - Adjust check intervals
 - 🔐 **Secure authentication** - GitHub OAuth Device Flow (no token management needed)
+- ⚙️ **Customizable hooks** - Configure custom actions via YAML config file
+- 🎵 **Custom sounds** - Use your own sound files for notifications
+- 💬 **Desktop notifications** - Native OS notifications support
 
 ## Installation
 
@@ -173,6 +176,7 @@ By default, octap uses a built-in OAuth Client ID for convenience. For productio
 |------|-------------|---------|---------|
 | `-c, --commit` | Specify commit SHA to monitor | Current HEAD | `octap -c abc123def` |
 | `-i, --interval` | Polling interval | 5s | `octap -i 30s` |
+| `--config` | Path to configuration file | `~/.config/octap/config.yml` | `octap --config ./my-config.yml` |
 | `--silent` | Disable sound notifications | false | `octap --silent` |
 | `--verbose` | Enable verbose logging | false | `octap --verbose` |
 | `--debug` | Enable debug logging | false | `octap --debug` |
@@ -181,9 +185,110 @@ By default, octap uses a built-in OAuth Client ID for convenience. For productio
 **Environment Variables**:
 - `OCTAP_GITHUB_OAUTH_CLIENT_ID`: Sets the GitHub OAuth App Client ID
 
+### Configuration File
+
+octap supports a YAML configuration file for customizing notifications and actions. By default, it looks for `~/.config/octap/config.yml`.
+
+#### Generate Configuration Template
+
+```bash
+# Generate default config file
+octap config init
+
+# Generate config at specific location
+octap config init --output ./my-config.yml
+
+# Force overwrite existing config
+octap config init --force
+```
+
+#### Configuration Example
+
+The generated template includes OS-specific default sound files:
+
+**macOS:**
+```yaml
+hooks:
+  check_success:
+    - type: sound
+      path: /System/Library/Sounds/Glass.aiff
+  
+  check_failure:
+    - type: sound
+      path: /System/Library/Sounds/Basso.aiff
+    - type: notify
+      title: "Build Failed"
+      message: "Workflow {{.Workflow}} failed"
+      sound: true
+  
+  complete_success:
+    - type: notify
+      message: "All workflows completed successfully!"
+  
+  complete_failure:
+    - type: notify
+      title: "Workflow Failed"
+      message: "One or more workflows failed"
+      sound: false
+```
+
+**Linux:**
+```yaml
+hooks:
+  check_success:
+    - type: sound
+      path: /usr/share/sounds/freedesktop/stereo/complete.oga
+  
+  check_failure:
+    - type: sound
+      path: /usr/share/sounds/freedesktop/stereo/dialog-error.oga
+    - type: notify
+      title: "Build Failed"
+      message: "Workflow {{.Workflow}} failed"
+```
+
+**Windows:**
+```yaml
+hooks:
+  check_success:
+    - type: sound
+      path: C:\Windows\Media\chimes.wav
+  
+  check_failure:
+    - type: sound
+      path: C:\Windows\Media\chord.wav
+    - type: notify
+      title: "Build Failed"
+      message: "Workflow {{.Workflow}} failed"
+```
+
+#### Hook Events
+
+| Event | Description |
+|-------|-------------|
+| `check_success` | Triggered when an individual workflow succeeds |
+| `check_failure` | Triggered when an individual workflow fails |
+| `complete_success` | Triggered when all workflows complete successfully |
+| `complete_failure` | Triggered when any workflow fails |
+
+#### Action Types
+
+**`sound` Action**:
+- `path`: Path to sound file (mp3, wav, aiff, m4a)
+
+**`notify` Action**:
+- `title`: Notification title (optional, default: "octap")
+- `message`: Notification message (required)
+- `sound`: Play notification sound (optional, default: true)
+
+Template variables available in messages:
+- `{{.Repository}}`: Repository name
+- `{{.Workflow}}`: Workflow name
+- `{{.URL}}`: Workflow URL
+
 ### Sound Notifications
 
-octap plays different system sounds based on workflow results:
+When no configuration file is provided, octap plays different system sounds based on workflow results:
 
 - **Success**: Glass sound (macOS), complete sound (Linux)
 - **Failure**: Basso sound (macOS), error sound (Linux)

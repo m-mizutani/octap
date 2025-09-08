@@ -11,7 +11,10 @@ import (
 	"github.com/m-mizutani/octap/pkg/domain/model"
 )
 
-type SoundNotifier struct{}
+type SoundNotifier struct {
+	config       *model.Config
+	hookExecutor interfaces.HookExecutor
+}
 
 func NewSoundNotifier() interfaces.Notifier {
 	return &SoundNotifier{}
@@ -23,6 +26,25 @@ func (n *SoundNotifier) NotifySuccess(ctx context.Context, workflow *model.Workf
 		slog.String("name", workflow.Name),
 		slog.Int64("id", workflow.ID),
 	)
+
+	// Execute hooks if configured
+	if n.hookExecutor != nil {
+		event := model.WorkflowEvent{
+			Type:       model.HookCheckSuccess,
+			Repository: workflow.Repository,
+			Workflow:   workflow.Name,
+			RunID:      workflow.ID,
+			URL:        workflow.URL,
+		}
+		if err := n.hookExecutor.Execute(ctx, event); err != nil {
+			logger.Warn("failed to execute hooks",
+				slog.String("error", err.Error()),
+			)
+		}
+		return nil
+	}
+
+	// Fallback to default sound
 	return n.playSystemSound(ctx, true)
 }
 
@@ -32,10 +54,51 @@ func (n *SoundNotifier) NotifyFailure(ctx context.Context, workflow *model.Workf
 		slog.String("name", workflow.Name),
 		slog.Int64("id", workflow.ID),
 	)
+
+	// Execute hooks if configured
+	if n.hookExecutor != nil {
+		event := model.WorkflowEvent{
+			Type:       model.HookCheckFailure,
+			Repository: workflow.Repository,
+			Workflow:   workflow.Name,
+			RunID:      workflow.ID,
+			URL:        workflow.URL,
+		}
+		if err := n.hookExecutor.Execute(ctx, event); err != nil {
+			logger.Warn("failed to execute hooks",
+				slog.String("error", err.Error()),
+			)
+		}
+		return nil
+	}
+
+	// Fallback to default sound
 	return n.playSystemSound(ctx, false)
 }
 
 func (n *SoundNotifier) NotifyComplete(ctx context.Context, summary *model.Summary) error {
+	// Execute hooks if configured
+	if n.hookExecutor != nil {
+		var eventType model.HookEvent
+		if summary.FailureCount > 0 {
+			eventType = model.HookCompleteFailure
+		} else {
+			eventType = model.HookCompleteSuccess
+		}
+
+		event := model.WorkflowEvent{
+			Type: eventType,
+		}
+		if err := n.hookExecutor.Execute(context.Background(), event); err != nil {
+			logger := ctxlog.From(ctx)
+			logger.Warn("failed to execute hooks",
+				slog.String("error", err.Error()),
+			)
+		}
+		return nil
+	}
+
+	// Fallback to default sound
 	if summary.FailureCount > 0 {
 		return n.playSystemSound(ctx, false)
 	}
@@ -103,6 +166,17 @@ func (n *NoOpNotifier) NotifyFailure(ctx context.Context, workflow *model.Workfl
 	return nil
 }
 
+func (n *SoundNotifier) SetConfig(config *model.Config) {
+	if config != nil {
+		n.config = config
+		n.hookExecutor = NewHookExecutor(config)
+	}
+}
+
 func (n *NoOpNotifier) NotifyComplete(ctx context.Context, summary *model.Summary) error {
 	return nil
+}
+
+func (n *NoOpNotifier) SetConfig(config *model.Config) {
+	// NoOp
 }
