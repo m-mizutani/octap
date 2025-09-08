@@ -9,6 +9,7 @@ import (
 	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/octap/pkg/domain"
 	"github.com/m-mizutani/octap/pkg/domain/interfaces"
+	"github.com/m-mizutani/octap/pkg/domain/model"
 	"github.com/m-mizutani/octap/pkg/usecase"
 	"github.com/urfave/cli/v3"
 )
@@ -80,31 +81,34 @@ func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 		notifier = usecase.NewSoundNotifier()
 	}
 
-	// Load configuration file if specified
+	// Load configuration
+	configService := usecase.NewConfigService()
 	configPath := cmd.String("config")
+
+	var appConfig *model.Config
+	var configErr error
+
 	if configPath != "" {
-		configService := usecase.NewConfigService()
-		appConfig, err := configService.Load(configPath)
-		if err != nil {
+		// Load from specified path
+		appConfig, configErr = configService.Load(configPath)
+		if configErr != nil {
 			logger.Warn("Failed to load configuration file, using defaults",
 				slog.String("path", configPath),
-				slog.String("error", err.Error()),
+				slog.String("error", configErr.Error()),
 			)
 		} else {
-			notifier.SetConfig(appConfig)
 			logger.Info("Loaded configuration file",
 				slog.String("path", configPath),
 			)
 		}
 	} else {
-		// Try to load default config
-		configService := usecase.NewConfigService()
+		// Try to load from default path
 		defaultPath := configService.GetDefaultPath()
 
 		if defaultPath == "" {
 			logger.Debug("Default configuration path not available (home directory could not be determined)")
 		} else {
-			// Check if default config file exists
+			// Check if default config file exists before attempting to load
 			if _, err := os.Stat(defaultPath); err != nil {
 				if os.IsNotExist(err) {
 					logger.Debug("Default configuration file not found",
@@ -112,15 +116,19 @@ func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 					)
 				}
 			} else {
-				appConfig, err := configService.LoadDefault()
-				if err == nil && appConfig != nil {
-					notifier.SetConfig(appConfig)
+				appConfig, configErr = configService.LoadDefault()
+				if configErr == nil && appConfig != nil {
 					logger.Debug("Loaded default configuration file",
 						slog.String("path", defaultPath),
 					)
 				}
 			}
 		}
+	}
+
+	// Set config if loaded successfully
+	if configErr == nil && appConfig != nil {
+		notifier.SetConfig(appConfig)
 	}
 
 	display := NewDisplayManager(repo.FullName(), commitSHA)
