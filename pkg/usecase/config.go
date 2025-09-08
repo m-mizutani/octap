@@ -60,6 +60,34 @@ func (c *configService) LoadDefault() (*model.Config, error) {
 	return c.Load(c.defaultPath)
 }
 
+// LoadFromDirectory loads configuration from a directory by looking for .octap.yml or .octap.yaml
+func (c *configService) LoadFromDirectory(dir string) (*model.Config, error) {
+	configPath := c.findConfigInDirectory(dir)
+	if configPath == "" {
+		// No config file found in directory
+		return &model.Config{}, nil
+	}
+	return c.Load(configPath)
+}
+
+// findConfigInDirectory looks for .octap.yml or .octap.yaml in the specified directory
+// Returns the path of the first config file found, or empty string if none found
+// Priority: .octap.yml > .octap.yaml
+func (c *configService) findConfigInDirectory(dir string) string {
+	candidates := []string{
+		filepath.Join(dir, ".octap.yml"),
+		filepath.Join(dir, ".octap.yaml"),
+	}
+
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+
+	return ""
+}
+
 // GetDefaultPath returns the default configuration file path
 func (c *configService) GetDefaultPath() string {
 	return c.defaultPath

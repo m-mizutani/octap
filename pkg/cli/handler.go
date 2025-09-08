@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 
 	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/octap/pkg/domain"
@@ -13,6 +14,14 @@ import (
 	"github.com/m-mizutani/octap/pkg/usecase"
 	"github.com/urfave/cli/v3"
 )
+
+// hasHooks checks if the HooksConfig has any configured hooks
+func hasHooks(hooks model.HooksConfig) bool {
+	return len(hooks.CheckSuccess) > 0 ||
+		len(hooks.CheckFailure) > 0 ||
+		len(hooks.CompleteSuccess) > 0 ||
+		len(hooks.CompleteFailure) > 0
+}
 
 func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 	logLevel := slog.LevelWarn
@@ -89,7 +98,7 @@ func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 	var configErr error
 
 	if configPath != "" {
-		// Load from specified path
+		// Load from specified path (highest priority)
 		appConfig, configErr = configService.Load(configPath)
 		if configErr != nil {
 			logger.Warn("Failed to load configuration file, using defaults",
@@ -102,25 +111,45 @@ func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 			)
 		}
 	} else {
-		// Try to load from default path
-		defaultPath := configService.GetDefaultPath()
-
-		if defaultPath == "" {
-			logger.Debug("Default configuration path not available (home directory could not be determined)")
-		} else {
-			// Check if default config file exists before attempting to load
-			if _, err := os.Stat(defaultPath); err != nil {
-				if os.IsNotExist(err) {
-					logger.Debug("Default configuration file not found",
-						slog.String("path", defaultPath),
+		// Try to load from current directory first
+		appConfig, configErr = configService.LoadFromDirectory(currentDir)
+		if configErr == nil && appConfig != nil && hasHooks(appConfig.Hooks) {
+			// Found and loaded config from current directory
+			// We need to find which config file was actually loaded for logging
+			candidates := []string{
+				filepath.Join(currentDir, ".octap.yml"),
+				filepath.Join(currentDir, ".octap.yaml"),
+			}
+			for _, candidate := range candidates {
+				if _, err := os.Stat(candidate); err == nil {
+					logger.Info("Loaded configuration file from current directory",
+						slog.String("path", candidate),
 					)
+					break
 				}
+			}
+		} else {
+			// No config found in current directory, try default path
+			defaultPath := configService.GetDefaultPath()
+
+			if defaultPath == "" {
+				logger.Debug("Default configuration path not available (home directory could not be determined)")
 			} else {
-				appConfig, configErr = configService.LoadDefault()
-				if configErr == nil && appConfig != nil {
-					logger.Debug("Loaded default configuration file",
-						slog.String("path", defaultPath),
-					)
+				// Check if default config file exists before attempting to load
+				if _, err := os.Stat(defaultPath); err != nil {
+					if os.IsNotExist(err) {
+						logger.Debug("No configuration file found",
+							slog.String("current_dir", currentDir),
+							slog.String("default_path", defaultPath),
+						)
+					}
+				} else {
+					appConfig, configErr = configService.LoadDefault()
+					if configErr == nil && appConfig != nil {
+						logger.Info("Loaded default configuration file",
+							slog.String("path", defaultPath),
+						)
+					}
 				}
 			}
 		}
