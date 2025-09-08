@@ -9,15 +9,11 @@ CLI GitHub Actions notifier - Monitor and notify when GitHub Actions workflows c
 
 - 🔄 **Real-time monitoring** of GitHub Actions workflows
 - 🎯 **Commit-specific tracking** - Monitor workflows for specific commits
-- 🔔 **Sound notifications** - Different sounds for individual and completion events
 - 📊 **Live CUI display** - See workflow status in real-time
-- ⏱️ **Configurable polling** - Adjust check intervals
-- 🔐 **Secure authentication** - GitHub OAuth Device Flow (no token management needed)
 - ⚙️ **Customizable hooks** - Configure custom actions via YAML config file
-- 🎵 **Custom sounds** - Use your own sound files for different event types
-- 💬 **Slack notifications** - Send workflow status to Slack channels
-- 🔧 **Command execution** - Run custom scripts on workflow events
-- 🚀 **Smart initial check** - Handles already-completed workflows gracefully
+  - 🎵 **Custom sounds** - Use your own sound files for different event types
+  - 💬 **Slack notifications** - Send workflow status to Slack channels
+  - 🔧 **Command execution** - Run custom scripts on workflow events
 
 ## What's New
 
