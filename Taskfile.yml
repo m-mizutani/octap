@@ -1,0 +1,41 @@
+version: '3'
+
+tasks:
+  mock:
+    desc: Generate mocks for interfaces
+    cmds:
+      - go run github.com/matryer/moq@latest -out pkg/usecase/mock_config_test.go -pkg usecase_test pkg/domain/interfaces ConfigService
+      - go run github.com/matryer/moq@latest -out pkg/usecase/mock_hook_test.go -pkg usecase_test pkg/domain/interfaces HookExecutor
+      - go run github.com/matryer/moq@latest -out pkg/usecase/mock_action_test.go -pkg usecase_test pkg/domain/interfaces ActionExecutor
+      - go run github.com/matryer/moq@latest -out pkg/usecase/mock_notifier_test.go -pkg usecase_test pkg/domain/interfaces Notifier
+
+  test:
+    desc: Run tests
+    cmds:
+      - go test -v ./...
+
+  lint:
+    desc: Run linters
+    cmds:
+      - go vet ./...
+      - go fmt ./...
+      - golangci-lint run ./...
+
+  security:
+    desc: Run security checks
+    cmds:
+      - gosec -quiet ./...
+
+  build:
+    desc: Build the application
+    cmds:
+      - go build -o octap main.go
+
+  run:
+    desc: Run the application
+    cmds:
+      - go run main.go {{.CLI_ARGS}}
+
+  check:
+    desc: Run all checks
+    deps: [test, lint, security]

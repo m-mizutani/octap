@@ -145,6 +145,9 @@ func (u *MonitorUseCase) performCheck(
 			if exists && previous.Status != model.WorkflowStatusCompleted {
 				hasNewCompletions = true
 				newlyCompleted = append(newlyCompleted, run)
+			} else if isInitial {
+				// On initial check, mark as having completions if workflows are already done
+				hasNewCompletions = true
 			}
 		}
 	}
@@ -155,12 +158,20 @@ func (u *MonitorUseCase) performCheck(
 	}
 
 	// Handle sound notifications in background goroutines (non-blocking)
-	for _, workflow := range newlyCompleted {
-		go u.handleWorkflowNotification(ctx, workflow)
+	// Skip individual notifications on initial check if all are already completed
+	if !(isInitial && allCompleted && len(runs) > 0) {
+		for _, workflow := range newlyCompleted {
+			go u.handleWorkflowNotification(ctx, workflow)
+		}
 	}
 
 	// Exit when all workflows are completed
 	if allCompleted && len(runs) > 0 {
+		logger.Debug("All workflows completed",
+			slog.Bool("is_initial", isInitial),
+			slog.Bool("has_new_completions", hasNewCompletions),
+			slog.Int("run_count", len(runs)),
+		)
 		if isInitial || hasNewCompletions {
 			// Show final summary if display supports it
 			if extDisplay, ok := u.display.(interfaces.ExtendedDisplay); ok {
@@ -168,10 +179,17 @@ func (u *MonitorUseCase) performCheck(
 			}
 
 			summary := u.buildSummary(runs, startTime)
+			logger.Debug("Calling NotifyComplete",
+				slog.Int("total_runs", summary.TotalRuns),
+				slog.Int("success_count", summary.SuccessCount),
+				slog.Int("failure_count", summary.FailureCount),
+			)
 			if err := u.notifier.NotifyComplete(ctx, summary); err != nil {
 				logger.Warn("failed to notify completion",
 					slog.String("error", err.Error()),
 				)
+			} else {
+				logger.Debug("NotifyComplete returned successfully")
 			}
 			return errAllCompleted
 		}

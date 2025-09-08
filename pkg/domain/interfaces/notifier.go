@@ -10,4 +10,5 @@ type Notifier interface {
 	NotifySuccess(ctx context.Context, workflow *model.WorkflowRun) error
 	NotifyFailure(ctx context.Context, workflow *model.WorkflowRun) error
 	NotifyComplete(ctx context.Context, summary *model.Summary) error
+	SetConfig(config *model.Config)
 }

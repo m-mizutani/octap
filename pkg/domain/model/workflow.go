@@ -23,6 +23,7 @@ const (
 type WorkflowRun struct {
 	ID         int64
 	Name       string
+	Repository string
 	Status     WorkflowStatus
 	Conclusion WorkflowConclusion
 	URL        string

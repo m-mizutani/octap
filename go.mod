@@ -10,6 +10,7 @@ require (
 	github.com/m-mizutani/gt v0.1.0
 	github.com/urfave/cli/v3 v3.4.1
 	golang.org/x/oauth2 v0.30.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (

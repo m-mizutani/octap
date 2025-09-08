@@ -28,5 +28,8 @@ By default, it monitors the current commit in the current directory.
 Use -c/--commit to specify a different commit SHA.`,
 		Flags:  flags,
 		Action: RunMonitor,
+		Commands: []*cli.Command{
+			NewConfigCommand(),
+		},
 	}
 }

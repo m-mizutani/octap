@@ -50,5 +50,9 @@ func DefineFlags() []cli.Flag {
 			Sources: cli.EnvVars("OCTAP_GITHUB_OAUTH_CLIENT_ID"),
 			Usage:   "GitHub OAuth App Client ID (defaults to built-in ID)",
 		},
+		&cli.StringFlag{
+			Name:  "config",
+			Usage: "Path to configuration file",
+		},
 	}
 }

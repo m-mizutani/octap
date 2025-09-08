@@ -34,6 +34,7 @@ You must use following tools and libraries for development.
 - Testing framework: `github.com/m-mizutani/gt`
 - Logger propagation: `github.com/m-mizutani/ctxlog`
 - Task management: `https://github.com/go-task/task`
+- Mock generation: `github.com/matryer/moq` for interface mocking
 
 ## Common Development Commands
 

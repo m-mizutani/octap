@@ -9,10 +9,21 @@ CLI GitHub Actions notifier - Monitor and notify when GitHub Actions workflows c
 
 - 🔄 **Real-time monitoring** of GitHub Actions workflows
 - 🎯 **Commit-specific tracking** - Monitor workflows for specific commits
-- 🔔 **Sound notifications** - Different sounds for success/failure
+- 🔔 **Sound notifications** - Different sounds for individual and completion events
 - 📊 **Live CUI display** - See workflow status in real-time
 - ⏱️ **Configurable polling** - Adjust check intervals
 - 🔐 **Secure authentication** - GitHub OAuth Device Flow (no token management needed)
+- ⚙️ **Customizable hooks** - Configure custom actions via YAML config file
+- 🎵 **Custom sounds** - Use your own sound files for different event types
+- 🚀 **Smart initial check** - Handles already-completed workflows gracefully
+
+## What's New
+
+### Latest Updates
+- **Smart Completion Events**: When all workflows are already completed on initial check, only `complete_success` or `complete_failure` sounds play
+- **Parallel Hook Execution**: Multiple hooks execute concurrently with proper synchronization
+- **Enhanced Debug Logging**: Detailed logging for configuration loading and hook execution (use `--debug` flag)
+- **Distinct Completion Sounds**: Different sounds for completion events vs individual workflow events
 
 ## Installation
 
@@ -173,6 +184,7 @@ By default, octap uses a built-in OAuth Client ID for convenience. For productio
 |------|-------------|---------|---------|
 | `-c, --commit` | Specify commit SHA to monitor | Current HEAD | `octap -c abc123def` |
 | `-i, --interval` | Polling interval | 5s | `octap -i 30s` |
+| `--config` | Path to configuration file | `~/.config/octap/config.yml` | `octap --config ./my-config.yml` |
 | `--silent` | Disable sound notifications | false | `octap --silent` |
 | `--verbose` | Enable verbose logging | false | `octap --verbose` |
 | `--debug` | Enable debug logging | false | `octap --debug` |
@@ -181,15 +193,126 @@ By default, octap uses a built-in OAuth Client ID for convenience. For productio
 **Environment Variables**:
 - `OCTAP_GITHUB_OAUTH_CLIENT_ID`: Sets the GitHub OAuth App Client ID
 
+### Configuration File
+
+octap supports a YAML configuration file for customizing sound notifications. By default, it looks for `~/.config/octap/config.yml`.
+
+The configuration system provides:
+- **Four distinct event types** for granular control
+- **OS-specific default sounds** that work out of the box
+- **Custom sound file support** for personalization
+- **Parallel action execution** for multiple hooks
+
+#### Generate Configuration Template
+
+```bash
+# Generate default config file
+octap config init
+
+# Generate config at specific location
+octap config init --output ./my-config.yml
+
+# Force overwrite existing config
+octap config init --force
+```
+
+#### Configuration Example
+
+The generated template includes OS-specific default sound files:
+
+**macOS:**
+```yaml
+hooks:
+  check_success:
+    - type: sound
+      path: /System/Library/Sounds/Glass.aiff
+  
+  check_failure:
+    - type: sound
+      path: /System/Library/Sounds/Basso.aiff
+  
+  complete_success:
+    - type: sound
+      path: /System/Library/Sounds/Ping.aiff
+  
+  complete_failure:
+    - type: sound
+      path: /System/Library/Sounds/Funk.aiff
+```
+
+**Linux:**
+```yaml
+hooks:
+  check_success:
+    - type: sound
+      path: /usr/share/sounds/freedesktop/stereo/complete.oga
+  
+  check_failure:
+    - type: sound
+      path: /usr/share/sounds/freedesktop/stereo/dialog-error.oga
+  
+  complete_success:
+    - type: sound
+      path: /usr/share/sounds/freedesktop/stereo/bell.oga
+  
+  complete_failure:
+    - type: sound
+      path: /usr/share/sounds/freedesktop/stereo/alarm-clock-elapsed.oga
+```
+
+**Windows:**
+```yaml
+hooks:
+  check_success:
+    - type: sound
+      path: C:\Windows\Media\chimes.wav
+  
+  check_failure:
+    - type: sound
+      path: C:\Windows\Media\chord.wav
+  
+  complete_success:
+    - type: sound
+      path: C:\Windows\Media\ding.wav
+  
+  complete_failure:
+    - type: sound
+      path: C:\Windows\Media\Windows Critical Stop.wav
+```
+
+#### Hook Events
+
+| Event | Description | When Triggered |
+|-------|-------------|----------------|
+| `check_success` | Individual workflow success | When a workflow completes successfully during monitoring |
+| `check_failure` | Individual workflow failure | When a workflow fails during monitoring |
+| `complete_success` | All workflows successful | When all workflows complete successfully (including initial check) |
+| `complete_failure` | One or more workflows failed | When monitoring ends with failures (including initial check) |
+
+**Note**: When all workflows are already completed on the initial check, only `complete_success` or `complete_failure` events are triggered, not individual `check_*` events.
+
+#### Action Types
+
+**`sound` Action**:
+- `path`: Path to sound file
+- Different sounds can be configured for each event type
+
+**Supported Sound Formats by Platform**:
+| Platform | Supported Formats | Notes |
+|----------|-------------------|-------|
+| **macOS** | .aiff, .mp3, .wav, .m4a | Uses `afplay` command |
+| **Linux** | .oga, .wav, .mp3, .ogg | Uses `paplay` (PulseAudio) or `aplay` (ALSA) as fallback |
+| **Windows** | .wav | Uses PowerShell's `Media.SoundPlayer` |
+
 ### Sound Notifications
 
-octap plays different system sounds based on workflow results:
+When no configuration file is provided, octap plays different system sounds based on workflow results:
 
-- **Success**: Glass sound (macOS), complete sound (Linux)
-- **Failure**: Basso sound (macOS), error sound (Linux)
+- **Success**: Glass sound (macOS), complete sound (Linux), chimes (Windows)
+- **Failure**: Basso sound (macOS), error sound (Linux), chord (Windows)
 - **Final Summary**: Plays appropriate sound based on overall result
 
-Sound notifications are automatically disabled on Windows or unsupported platforms.
+All platforms support sound notifications with their native audio systems.
 
 ### Workflow Status Icons
 
@@ -224,11 +347,12 @@ git push origin your-branch
 **"No saved token found, starting authentication"**
 - This is normal on first run, follow the authentication flow
 
+
 ### Supported Platforms
 
-- **macOS**: Full support with system sounds
+- **macOS**: Full support with system sounds using `afplay`
 - **Linux**: Full support with system sounds (requires `paplay` or `aplay`)
-- **Windows**: Visual monitoring only (sound notifications disabled)
+- **Windows**: Full support with system sounds using PowerShell
 
 ## License
 
