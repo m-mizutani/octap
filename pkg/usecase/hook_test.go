@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -15,6 +16,7 @@ import (
 	"github.com/m-mizutani/gt"
 	"github.com/m-mizutani/octap/pkg/domain/model"
 	"github.com/m-mizutani/octap/pkg/usecase"
+	"go.uber.org/goleak"
 )
 
 func TestHookExecutor(t *testing.T) {
@@ -100,8 +102,6 @@ func TestHookExecutor(t *testing.T) {
 		executor := usecase.NewHookExecutor(config)
 		ctx := context.Background()
 
-		// Track action completion
-		var actionCounter int32
 		startTime := time.Now()
 
 		// Execute multiple events asynchronously
@@ -130,7 +130,6 @@ func TestHookExecutor(t *testing.T) {
 		for _, event := range events {
 			err := executor.Execute(ctx, event)
 			gt.NoError(t, err)
-			atomic.AddInt32(&actionCounter, 1)
 		}
 
 		// Actions should be running in background
@@ -232,6 +231,8 @@ func TestHookExecutor(t *testing.T) {
 	})
 
 	t.Run("No goroutine leak", func(t *testing.T) {
+		defer goleak.VerifyNone(t)
+
 		config := &model.Config{
 			Hooks: model.HooksConfig{
 				CheckSuccess: []model.Action{
@@ -249,9 +250,6 @@ func TestHookExecutor(t *testing.T) {
 		executor := usecase.NewHookExecutor(config)
 		ctx := context.Background()
 
-		// Get initial goroutine count
-		initialCount := runtime.NumGoroutine()
-
 		// Execute multiple events
 		for i := range 10 {
 			event := model.WorkflowEvent{
@@ -266,15 +264,6 @@ func TestHookExecutor(t *testing.T) {
 
 		// Wait for all actions to complete
 		executor.WaitForCompletion()
-
-		// Give goroutines time to clean up
-		time.Sleep(100 * time.Millisecond)
-
-		// Check goroutine count
-		finalCount := runtime.NumGoroutine()
-
-		// Should not have leaked goroutines (allow small variance for runtime)
-		gt.True(t, finalCount <= initialCount+2)
 	})
 
 	t.Run("Execute with real Slack action", func(t *testing.T) {
@@ -496,7 +485,7 @@ func TestHookExecutor(t *testing.T) {
 
 		// Should wait for action to complete (synchronous)
 		gt.True(t, executionTime >= 100*time.Millisecond)
-		
+
 		// Verify the request was made during Execute, not after
 		gt.True(t, !requestTime.IsZero())
 		gt.True(t, requestTime.Before(time.Now()))
@@ -550,18 +539,20 @@ func TestHookExecutor(t *testing.T) {
 	})
 
 	t.Run("Environment variables in command actions", func(t *testing.T) {
-		// Create a test script that uses OCTAP environment variables
+		// Create a temporary file to write the environment variable
 		tempFile := "./test_env_output.txt"
 		defer os.Remove(tempFile)
 
+		// Use printenv or env command to verify environment variable is set
 		var commandStr string
 		var args []string
 		if runtime.GOOS == "windows" {
 			commandStr = "cmd"
 			args = []string{"/c", fmt.Sprintf("echo %%OCTAP_REPOSITORY%% > %s", tempFile)}
 		} else {
+			// Use printenv which directly outputs the value of the environment variable
 			commandStr = "sh"
-			args = []string{"-c", fmt.Sprintf("echo $OCTAP_REPOSITORY > %s", tempFile)}
+			args = []string{"-c", fmt.Sprintf("printenv OCTAP_REPOSITORY > %s", tempFile)}
 		}
 
 		config := &model.Config{
@@ -583,10 +574,10 @@ func TestHookExecutor(t *testing.T) {
 
 		event := model.WorkflowEvent{
 			Type:       model.HookCheckSuccess,
-			Repository: "myorg/myrepo",
+			Repository: "test/repository",
 			Workflow:   "Build",
 			RunID:      12345,
-			URL:        "https://github.com/myorg/myrepo/actions/runs/12345",
+			URL:        "https://github.com/test/repository/actions/runs/12345",
 		}
 
 		err := executor.Execute(ctx, event)
@@ -595,12 +586,9 @@ func TestHookExecutor(t *testing.T) {
 		// Wait for action to complete
 		executor.WaitForCompletion()
 
-		// Verify environment variable was set correctly
+		// Verify environment variable was written to file
 		content, err := os.ReadFile(tempFile)
 		gt.NoError(t, err)
-		// Check that the content contains the repository name
-		contentStr := string(content)
-		gt.True(t, len(contentStr) > 0)
-		// Repository name should be in the output (allowing for newlines/spaces)
+		gt.Equal(t, strings.TrimSpace(string(content)), "test/repository")
 	})
 }
