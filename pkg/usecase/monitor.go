@@ -58,7 +58,7 @@ func (u *MonitorUseCase) Execute(ctx context.Context) error {
 
 	// Channel to trigger immediate check
 	checkNow := make(chan struct{}, 1)
-	
+
 	// Trigger initial check
 	checkNow <- struct{}{}
 
@@ -109,7 +109,7 @@ func (u *MonitorUseCase) performCheck(
 	isInitial bool,
 ) error {
 	logger := ctxlog.From(ctx)
-	
+
 	runs, err := u.github.GetWorkflowRuns(ctx, u.config.Repo, u.config.CommitSHA)
 	if err != nil {
 		logger.Error("failed to get workflow runs",

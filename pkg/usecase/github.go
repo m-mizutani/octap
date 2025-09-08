@@ -93,7 +93,7 @@ func parseGitHubURL(url string) (owner, repo string) {
 
 func (s *GitHubService) GetWorkflowRuns(ctx context.Context, repo model.Repository, commitSHA string) ([]*model.WorkflowRun, error) {
 	logger := ctxlog.From(ctx)
-	
+
 	client, err := s.authService.GetAuthenticatedClient(ctx)
 	if err != nil {
 		return nil, err

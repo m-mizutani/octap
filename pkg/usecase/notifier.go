@@ -53,7 +53,7 @@ func (n *SoundNotifier) playSystemSound(ctx context.Context, success bool) error
 		} else {
 			soundFile = "/System/Library/Sounds/Basso.aiff"
 		}
-		cmd := exec.Command("afplay", soundFile)
+		cmd := exec.Command("afplay", soundFile) // #nosec G204 - soundFile is hardcoded
 		if err := cmd.Run(); err != nil {
 			logger.Warn("failed to play sound",
 				slog.String("error", err.Error()),
