@@ -8,7 +8,7 @@ import (
 type ConfigService interface {
 	Load(path string) (*model.Config, error)
 	LoadDefault() (*model.Config, error)
-	LoadFromDirectory(dir string) (*model.Config, error)
+	LoadFromDirectory(dir string) (*model.Config, string, error)
 	GetDefaultPath() string
 	GenerateTemplate() string
 	SaveTemplate(path string, force bool) error

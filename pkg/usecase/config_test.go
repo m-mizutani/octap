@@ -97,17 +97,18 @@ hooks:
 
 	t.Run("LoadFromDirectory with no config file found", func(t *testing.T) {
 		tempDir := t.TempDir()
-		configService := usecase.NewConfigService().(*usecase.ConfigService)
+		configService := usecase.NewConfigService()
 
-		config, err := configService.LoadFromDirectory(tempDir)
+		config, path, err := configService.LoadFromDirectory(tempDir)
 		gt.NoError(t, err)
 		gt.V(t, config).NotNil()
+		gt.Equal(t, path, "")
 		gt.Equal(t, len(config.Hooks.CheckSuccess), 0)
 	})
 
 	t.Run("LoadFromDirectory with octap.yml found and loaded", func(t *testing.T) {
 		tempDir := t.TempDir()
-		configService := usecase.NewConfigService().(*usecase.ConfigService)
+		configService := usecase.NewConfigService()
 
 		configPath := filepath.Join(tempDir, ".octap.yml")
 		configContent := `hooks:
@@ -121,9 +122,10 @@ hooks:
 		err := os.WriteFile(configPath, []byte(configContent), 0600)
 		gt.NoError(t, err)
 
-		config, err := configService.LoadFromDirectory(tempDir)
+		config, loadedPath, err := configService.LoadFromDirectory(tempDir)
 		gt.NoError(t, err)
 		gt.V(t, config).NotNil()
+		gt.Equal(t, loadedPath, configPath)
 		gt.Equal(t, len(config.Hooks.CheckSuccess), 1)
 		gt.Equal(t, len(config.Hooks.CheckFailure), 1)
 		gt.Equal(t, config.Hooks.CheckSuccess[0].Type, "sound")
@@ -131,7 +133,7 @@ hooks:
 
 	t.Run("LoadFromDirectory with octap.yaml found and loaded", func(t *testing.T) {
 		tempDir := t.TempDir()
-		configService := usecase.NewConfigService().(*usecase.ConfigService)
+		configService := usecase.NewConfigService()
 
 		configPath := filepath.Join(tempDir, ".octap.yaml")
 		configContent := `hooks:
@@ -142,16 +144,17 @@ hooks:
 		err := os.WriteFile(configPath, []byte(configContent), 0600)
 		gt.NoError(t, err)
 
-		config, err := configService.LoadFromDirectory(tempDir)
+		config, loadedPath, err := configService.LoadFromDirectory(tempDir)
 		gt.NoError(t, err)
 		gt.V(t, config).NotNil()
+		gt.Equal(t, loadedPath, configPath)
 		gt.Equal(t, len(config.Hooks.CompleteSuccess), 1)
 		gt.Equal(t, config.Hooks.CompleteSuccess[0].Type, "sound")
 	})
 
 	t.Run("LoadFromDirectory yml has priority over yaml", func(t *testing.T) {
 		tempDir := t.TempDir()
-		configService := usecase.NewConfigService().(*usecase.ConfigService)
+		configService := usecase.NewConfigService()
 
 		// Create both files
 		ymlPath := filepath.Join(tempDir, ".octap.yml")
@@ -173,12 +176,13 @@ hooks:
 		err = os.WriteFile(yamlPath, []byte(yamlContent), 0600)
 		gt.NoError(t, err)
 
-		config, err := configService.LoadFromDirectory(tempDir)
+		config, loadedPath, err := configService.LoadFromDirectory(tempDir)
 		gt.NoError(t, err)
 		gt.V(t, config).NotNil()
+		gt.Equal(t, loadedPath, ymlPath) // Should load .octap.yml (priority)
 		gt.Equal(t, len(config.Hooks.CheckSuccess), 1)
 
-		// Should load .octap.yml (priority)
+		// Verify content from .yml file
 		soundPath, ok := config.Hooks.CheckSuccess[0].Data["path"].(string)
 		gt.True(t, ok)
 		gt.Equal(t, soundPath, "/test/yml.wav")
@@ -186,7 +190,7 @@ hooks:
 
 	t.Run("LoadFromDirectory with invalid yaml content", func(t *testing.T) {
 		tempDir := t.TempDir()
-		configService := usecase.NewConfigService().(*usecase.ConfigService)
+		configService := usecase.NewConfigService()
 
 		configPath := filepath.Join(tempDir, ".octap.yml")
 		invalidContent := `hooks:
@@ -197,7 +201,8 @@ hooks:
 		err := os.WriteFile(configPath, []byte(invalidContent), 0600)
 		gt.NoError(t, err)
 
-		_, err = configService.LoadFromDirectory(tempDir)
+		_, loadedPath, err := configService.LoadFromDirectory(tempDir)
 		gt.Error(t, err)
+		gt.Equal(t, loadedPath, configPath) // Path should still be returned even on error
 	})
 }

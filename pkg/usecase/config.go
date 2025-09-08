@@ -61,13 +61,15 @@ func (c *configService) LoadDefault() (*model.Config, error) {
 }
 
 // LoadFromDirectory loads configuration from a directory by looking for .octap.yml or .octap.yaml
-func (c *configService) LoadFromDirectory(dir string) (*model.Config, error) {
+// Returns the config, the path of the loaded file (empty if no file found), and any error
+func (c *configService) LoadFromDirectory(dir string) (*model.Config, string, error) {
 	configPath := c.findConfigInDirectory(dir)
 	if configPath == "" {
 		// No config file found in directory
-		return &model.Config{}, nil
+		return &model.Config{}, "", nil
 	}
-	return c.Load(configPath)
+	config, err := c.Load(configPath)
+	return config, configPath, err
 }
 
 // findConfigInDirectory looks for .octap.yml or .octap.yaml in the specified directory

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 
 	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/octap/pkg/domain"
@@ -112,22 +111,13 @@ func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 		}
 	} else {
 		// Try to load from current directory first
-		appConfig, configErr = configService.LoadFromDirectory(currentDir)
-		if configErr == nil && appConfig != nil && hasHooks(appConfig.Hooks) {
+		var loadedPath string
+		appConfig, loadedPath, configErr = configService.LoadFromDirectory(currentDir)
+		if configErr == nil && hasHooks(appConfig.Hooks) {
 			// Found and loaded config from current directory
-			// We need to find which config file was actually loaded for logging
-			candidates := []string{
-				filepath.Join(currentDir, ".octap.yml"),
-				filepath.Join(currentDir, ".octap.yaml"),
-			}
-			for _, candidate := range candidates {
-				if _, err := os.Stat(candidate); err == nil {
-					logger.Info("Loaded configuration file from current directory",
-						slog.String("path", candidate),
-					)
-					break
-				}
-			}
+			logger.Info("Loaded configuration file from current directory",
+				slog.String("path", loadedPath),
+			)
 		} else {
 			// No config found in current directory, try default path
 			defaultPath := configService.GetDefaultPath()
