@@ -11,8 +11,9 @@ import (
 )
 
 type hookExecutor struct {
-	config  *model.Config
-	actions map[string]interfaces.ActionExecutor
+	config       *model.Config
+	actions      map[string]interfaces.ActionExecutor
+	allActionsWg sync.WaitGroup // Tracks all actions across all events
 }
 
 // NewHookExecutor creates a new HookExecutor instance
@@ -58,9 +59,11 @@ func (h *hookExecutor) Execute(ctx context.Context, event model.WorkflowEvent) e
 		)
 
 		wg.Add(1)
+		h.allActionsWg.Add(1) // Track this action globally
 		// Execute all actions asynchronously with WaitGroup control
 		go func(a model.Action, idx int) {
 			defer wg.Done()
+			defer h.allActionsWg.Done() // Mark as done globally
 
 			logger.Debug("Starting action execution",
 				slog.Int("index", idx),
@@ -162,4 +165,13 @@ func (h *hookExecutor) executeAction(ctx context.Context, action model.Action, e
 		)
 	}
 	return err
+}
+
+// WaitForCompletion waits for all pending actions to complete.
+// This should be called only when the process is about to exit.
+func (h *hookExecutor) WaitForCompletion() {
+	logger := ctxlog.From(context.Background())
+	logger.Debug("Waiting for all pending actions to complete")
+	h.allActionsWg.Wait()
+	logger.Debug("All pending actions have completed")
 }

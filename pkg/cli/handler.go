@@ -146,5 +146,8 @@ func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
+	// Wait for all pending hook actions to complete before exiting
+	notifier.WaitForPendingActions()
+
 	return nil
 }
