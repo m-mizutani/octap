@@ -155,8 +155,20 @@ func (n *SoundNotifier) playSystemSound(ctx context.Context, success bool) error
 		}
 
 	case "windows":
-		// Sound not supported on Windows
-		return nil
+		// Windows uses PowerShell to play sounds
+		var soundFile string
+		if success {
+			soundFile = "C:\\Windows\\Media\\chimes.wav"
+		} else {
+			soundFile = "C:\\Windows\\Media\\chord.wav"
+		}
+		script := `(New-Object Media.SoundPlayer "` + soundFile + `").PlaySync()`
+		cmd := exec.Command("powershell", "-Command", script) // #nosec G204 - soundFile is hardcoded
+		if err := cmd.Run(); err != nil {
+			logger.Warn("failed to play sound on Windows",
+				slog.String("error", err.Error()),
+			)
+		}
 
 	default:
 		logger.Warn("sound notification not supported on this platform",

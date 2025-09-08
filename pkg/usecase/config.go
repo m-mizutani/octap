@@ -18,8 +18,12 @@ type configService struct {
 
 // NewConfigService creates a new ConfigService instance
 func NewConfigService() interfaces.ConfigService {
-	homeDir, _ := os.UserHomeDir()
-	defaultPath := filepath.Join(homeDir, ".config", "octap", "config.yml")
+	var defaultPath string
+	if homeDir, err := os.UserHomeDir(); err == nil {
+		defaultPath = filepath.Join(homeDir, ".config", "octap", "config.yml")
+	}
+	// If homeDir cannot be determined, defaultPath remains empty string
+	// LoadDefault will handle empty defaultPath appropriately
 	return &configService{
 		defaultPath: defaultPath,
 	}
@@ -48,6 +52,11 @@ func (c *configService) Load(path string) (*model.Config, error) {
 
 // LoadDefault loads configuration from the default path
 func (c *configService) LoadDefault() (*model.Config, error) {
+	if c.defaultPath == "" {
+		// No default path available (e.g., home directory could not be determined)
+		// Return empty config without error
+		return &model.Config{}, nil
+	}
 	return c.Load(c.defaultPath)
 }
 
@@ -156,7 +165,12 @@ func expandPath(path string) string {
 	}
 
 	if path[0] == '~' {
-		homeDir, _ := os.UserHomeDir()
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			// If home directory cannot be determined, return path as-is
+			// This will likely cause an error later, but that's better than silently using wrong path
+			return path
+		}
 		return filepath.Join(homeDir, path[1:])
 	}
 

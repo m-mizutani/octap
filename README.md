@@ -127,20 +127,6 @@ octap --debug
    - Display URLs for failed workflows so you can quickly investigate
    - Exit automatically when all workflows complete
 
-### Usage Scenarios
-
-#### Scenario 1: Monitoring Active Workflows
-When you run octap right after pushing:
-- Individual workflows trigger `check_success` or `check_failure` sounds as they complete
-- When all workflows finish, `complete_success` or `complete_failure` sound plays
-- Both individual and completion sounds are heard
-
-#### Scenario 2: Checking Already-Completed Workflows
-When workflows finished before you run octap:
-- No individual `check_*` sounds play
-- Only the final `complete_success` or `complete_failure` sound plays
-- Quick feedback on overall result without redundant notifications
-
 ## Authentication
 
 octap uses GitHub OAuth Device Flow for authentication. On first run:
@@ -308,18 +294,25 @@ hooks:
 #### Action Types
 
 **`sound` Action**:
-- `path`: Path to sound file (mp3, wav, aiff, m4a, oga)
+- `path`: Path to sound file
 - Different sounds can be configured for each event type
+
+**Supported Sound Formats by Platform**:
+| Platform | Supported Formats | Notes |
+|----------|-------------------|-------|
+| **macOS** | .aiff, .mp3, .wav, .m4a | Uses `afplay` command |
+| **Linux** | .oga, .wav, .mp3, .ogg | Uses `paplay` (PulseAudio) or `aplay` (ALSA) as fallback |
+| **Windows** | .wav | Uses PowerShell's `Media.SoundPlayer` |
 
 ### Sound Notifications
 
 When no configuration file is provided, octap plays different system sounds based on workflow results:
 
-- **Success**: Glass sound (macOS), complete sound (Linux)
-- **Failure**: Basso sound (macOS), error sound (Linux)
+- **Success**: Glass sound (macOS), complete sound (Linux), chimes (Windows)
+- **Failure**: Basso sound (macOS), error sound (Linux), chord (Windows)
 - **Final Summary**: Plays appropriate sound based on overall result
 
-Sound notifications are automatically disabled on Windows or unsupported platforms.
+All platforms support sound notifications with their native audio systems.
 
 ### Workflow Status Icons
 
@@ -357,9 +350,9 @@ git push origin your-branch
 
 ### Supported Platforms
 
-- **macOS**: Full support with system sounds
+- **macOS**: Full support with system sounds using `afplay`
 - **Linux**: Full support with system sounds (requires `paplay` or `aplay`)
-- **Windows**: Visual monitoring only (sound notifications disabled)
+- **Windows**: Full support with system sounds using PowerShell
 
 ## License
 

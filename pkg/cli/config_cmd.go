@@ -43,7 +43,10 @@ func configInitAction(ctx context.Context, cmd *cli.Command) error {
 	outputPath := cmd.String("output")
 	if outputPath == "" {
 		// Use default path
-		homeDir, _ := os.UserHomeDir()
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("failed to determine home directory for default config path: %w", err)
+		}
 		outputPath = filepath.Join(homeDir, ".config", "octap", "config.yml")
 	}
 
