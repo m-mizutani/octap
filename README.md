@@ -9,13 +9,11 @@ CLI GitHub Actions notifier - Monitor and notify when GitHub Actions workflows c
 
 - 🔄 **Real-time monitoring** of GitHub Actions workflows
 - 🎯 **Commit-specific tracking** - Monitor workflows for specific commits
-- 🔔 **Sound notifications** - Different sounds for individual and completion events
 - 📊 **Live CUI display** - See workflow status in real-time
-- ⏱️ **Configurable polling** - Adjust check intervals
-- 🔐 **Secure authentication** - GitHub OAuth Device Flow (no token management needed)
 - ⚙️ **Customizable hooks** - Configure custom actions via YAML config file
-- 🎵 **Custom sounds** - Use your own sound files for different event types
-- 🚀 **Smart initial check** - Handles already-completed workflows gracefully
+  - 🎵 **Custom sounds** - Use your own sound files for different event types
+  - 💬 **Slack notifications** - Send workflow status to Slack channels
+  - 🔧 **Command execution** - Run custom scripts on workflow events
 
 ## What's New
 
@@ -293,9 +291,94 @@ hooks:
 
 #### Action Types
 
-**`sound` Action**:
-- `path`: Path to sound file
-- Different sounds can be configured for each event type
+##### `sound` Action
+Plays a sound file when the event occurs.
+
+**Configuration**:
+- `path`: Path to sound file (supports `~` for home directory)
+
+##### `slack` Action
+Sends a notification to Slack via Incoming Webhook.
+
+**Configuration**:
+- `webhook_url`: Slack Incoming Webhook URL (supports environment variables like `${SLACK_WEBHOOK_URL}`)
+- `message`: Message template with support for template variables
+- `color` (optional): Message color (`good`, `warning`, `danger`, or hex color code)
+- `username` (optional): Override webhook's default username (only works if webhook allows customization)
+- `icon_emoji` (optional): Override webhook's default icon (only works if webhook allows customization)
+
+**Example**:
+```yaml
+hooks:
+  check_failure:
+    - type: slack
+      webhook_url: ${SLACK_WEBHOOK_URL}
+      message: "❌ Workflow {{.Workflow}} failed in {{.Repository}}"
+      color: danger
+  
+  complete_success:
+    - type: slack
+      webhook_url: https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXX
+      message: "✅ All workflows completed successfully for {{.Repository}}"
+      color: good
+```
+
+##### `command` Action
+Executes an arbitrary command with workflow information available as environment variables.
+
+**Configuration**:
+- `command`: Command to execute (supports `~` for home directory)
+- `args` (optional): Array of command arguments (supports environment variable expansion)
+- `timeout` (optional): Command execution timeout (default: 30s)
+- `env` (optional): Additional environment variables to set
+
+**Example**:
+```yaml
+hooks:
+  check_failure:
+    - type: command
+      command: /usr/local/bin/notify
+      args:
+        - --title
+        - "Build Failed"
+        - --message
+        - "$OCTAP_WORKFLOW failed"
+      timeout: 10s
+  
+  complete_success:
+    - type: command
+      command: ~/scripts/deploy.sh
+      args:
+        - production
+        - "$OCTAP_RUN_ID"
+      env:
+        - DEPLOY_ENV=production
+```
+
+#### Template Variables (Slack)
+
+The following variables are available in Slack message templates:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `{{.Repository}}` | Repository name (owner/repo) | `m-mizutani/octap` |
+| `{{.Workflow}}` | Workflow name | `CI Build` |
+| `{{.RunID}}` | GitHub Actions run ID | `123456789` |
+| `{{.EventType}}` | Hook event type | `check_success` |
+| `{{.RunURL}}` | Direct link to the workflow run | `https://github.com/...` |
+| `{{.Timestamp}}` | Current timestamp | `2024-01-01 12:00:00` |
+
+#### Environment Variables (Command)
+
+The following environment variables are set when executing commands:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `OCTAP_EVENT_TYPE` | Hook event type | `check_failure` |
+| `OCTAP_REPOSITORY` | Repository name | `m-mizutani/octap` |
+| `OCTAP_WORKFLOW` | Workflow name | `CI Build` |
+| `OCTAP_RUN_ID` | GitHub Actions run ID | `123456789` |
+| `OCTAP_RUN_URL` | Direct link to the workflow run | `https://github.com/...` |
 
 **Supported Sound Formats by Platform**:
 | Platform | Supported Formats | Notes |
