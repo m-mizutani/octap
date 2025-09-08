@@ -30,8 +30,8 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v8
-        with:
-          version: latest
-          args: --timeout=5m
+        run: golangci-lint run --timeout=5m
