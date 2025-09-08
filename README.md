@@ -15,7 +15,6 @@ CLI GitHub Actions notifier - Monitor and notify when GitHub Actions workflows c
 - 🔐 **Secure authentication** - GitHub OAuth Device Flow (no token management needed)
 - ⚙️ **Customizable hooks** - Configure custom actions via YAML config file
 - 🎵 **Custom sounds** - Use your own sound files for notifications
-- 💬 **Desktop notifications** - Native OS notifications support
 
 ## Installation
 
@@ -216,20 +215,14 @@ hooks:
   check_failure:
     - type: sound
       path: /System/Library/Sounds/Basso.aiff
-    - type: notify
-      title: "Build Failed"
-      message: "Workflow {{.Workflow}} failed"
-      sound: true
   
   complete_success:
-    - type: notify
-      message: "All workflows completed successfully!"
+    - type: sound
+      path: /System/Library/Sounds/Ping.aiff
   
   complete_failure:
-    - type: notify
-      title: "Workflow Failed"
-      message: "One or more workflows failed"
-      sound: false
+    - type: sound
+      path: /System/Library/Sounds/Funk.aiff
 ```
 
 **Linux:**
@@ -242,9 +235,14 @@ hooks:
   check_failure:
     - type: sound
       path: /usr/share/sounds/freedesktop/stereo/dialog-error.oga
-    - type: notify
-      title: "Build Failed"
-      message: "Workflow {{.Workflow}} failed"
+  
+  complete_success:
+    - type: sound
+      path: /usr/share/sounds/freedesktop/stereo/bell.oga
+  
+  complete_failure:
+    - type: sound
+      path: /usr/share/sounds/freedesktop/stereo/alarm-clock-elapsed.oga
 ```
 
 **Windows:**
@@ -257,9 +255,14 @@ hooks:
   check_failure:
     - type: sound
       path: C:\Windows\Media\chord.wav
-    - type: notify
-      title: "Build Failed"
-      message: "Workflow {{.Workflow}} failed"
+  
+  complete_success:
+    - type: sound
+      path: C:\Windows\Media\ding.wav
+  
+  complete_failure:
+    - type: sound
+      path: C:\Windows\Media\Windows Critical Stop.wav
 ```
 
 #### Hook Events
@@ -275,16 +278,6 @@ hooks:
 
 **`sound` Action**:
 - `path`: Path to sound file (mp3, wav, aiff, m4a)
-
-**`notify` Action**:
-- `title`: Notification title (optional, default: "octap")
-- `message`: Notification message (required)
-- `sound`: Play notification sound (optional, default: true)
-
-Template variables available in messages:
-- `{{.Repository}}`: Repository name
-- `{{.Workflow}}`: Workflow name
-- `{{.URL}}`: Workflow URL
 
 ### Sound Notifications
 
@@ -328,6 +321,7 @@ git push origin your-branch
 
 **"No saved token found, starting authentication"**
 - This is normal on first run, follow the authentication flow
+
 
 ### Supported Platforms
 

@@ -19,8 +19,7 @@ func NewHookExecutor(config *model.Config) interfaces.HookExecutor {
 	return &hookExecutor{
 		config: config,
 		actions: map[string]interfaces.ActionExecutor{
-			"sound":  NewSoundAction(),
-			"notify": NewNotifyAction(),
+			"sound": NewSoundAction(),
 		},
 	}
 }
