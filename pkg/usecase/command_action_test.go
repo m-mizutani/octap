@@ -362,7 +362,7 @@ func TestCommandActionIntegration(t *testing.T) {
 				Type: "command",
 				Data: map[string]interface{}{
 					"command": "cmd",
-					"args":    []string{"/c", "echo", "test content", ">", testFile},
+					"args":    []string{"/c", fmt.Sprintf("echo test content > %s", testFile)},
 				},
 			}
 		} else {
