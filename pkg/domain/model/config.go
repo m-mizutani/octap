@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/m-mizutani/goerr/v2"
@@ -92,6 +93,26 @@ func (a *Action) ToSlackAction() (*SlackAction, error) {
 	return slackAction, nil
 }
 
+// parseStringSlice is a helper function to parse string arrays from interface{}
+func parseStringSlice(value interface{}, fieldName string) ([]string, error) {
+	switch v := value.(type) {
+	case []interface{}:
+		result := make([]string, len(v))
+		for i, item := range v {
+			itemStr, ok := item.(string)
+			if !ok {
+				return nil, goerr.New(fmt.Sprintf("command action '%s' must be string array", fieldName))
+			}
+			result[i] = itemStr
+		}
+		return result, nil
+	case []string:
+		return v, nil
+	default:
+		return nil, goerr.New(fmt.Sprintf("command action '%s' must be an array", fieldName))
+	}
+}
+
 // ToCommandAction converts Action to CommandAction for type safety
 func (a *Action) ToCommandAction() (*CommandAction, error) {
 	if a.Type != "command" {
@@ -109,22 +130,11 @@ func (a *Action) ToCommandAction() (*CommandAction, error) {
 
 	// Optional args field
 	if argsValue, ok := a.Data["args"]; ok {
-		switch v := argsValue.(type) {
-		case []interface{}:
-			args := make([]string, len(v))
-			for i, arg := range v {
-				argStr, ok := arg.(string)
-				if !ok {
-					return nil, goerr.New("command action 'args' must be string array")
-				}
-				args[i] = argStr
-			}
-			cmdAction.Args = args
-		case []string:
-			cmdAction.Args = v
-		default:
-			return nil, goerr.New("command action 'args' must be an array")
+		args, err := parseStringSlice(argsValue, "args")
+		if err != nil {
+			return nil, err
 		}
+		cmdAction.Args = args
 	}
 
 	// Optional timeout field
@@ -145,22 +155,11 @@ func (a *Action) ToCommandAction() (*CommandAction, error) {
 
 	// Optional env field
 	if envValue, ok := a.Data["env"]; ok {
-		switch v := envValue.(type) {
-		case []interface{}:
-			env := make([]string, len(v))
-			for i, e := range v {
-				envStr, ok := e.(string)
-				if !ok {
-					return nil, goerr.New("command action 'env' must be string array")
-				}
-				env[i] = envStr
-			}
-			cmdAction.Env = env
-		case []string:
-			cmdAction.Env = v
-		default:
-			return nil, goerr.New("command action 'env' must be an array")
+		env, err := parseStringSlice(envValue, "env")
+		if err != nil {
+			return nil, err
 		}
+		cmdAction.Env = env
 	}
 
 	return cmdAction, nil
