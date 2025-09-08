@@ -9,12 +9,21 @@ CLI GitHub Actions notifier - Monitor and notify when GitHub Actions workflows c
 
 - 🔄 **Real-time monitoring** of GitHub Actions workflows
 - 🎯 **Commit-specific tracking** - Monitor workflows for specific commits
-- 🔔 **Sound notifications** - Different sounds for success/failure
+- 🔔 **Sound notifications** - Different sounds for individual and completion events
 - 📊 **Live CUI display** - See workflow status in real-time
 - ⏱️ **Configurable polling** - Adjust check intervals
 - 🔐 **Secure authentication** - GitHub OAuth Device Flow (no token management needed)
 - ⚙️ **Customizable hooks** - Configure custom actions via YAML config file
-- 🎵 **Custom sounds** - Use your own sound files for notifications
+- 🎵 **Custom sounds** - Use your own sound files for different event types
+- 🚀 **Smart initial check** - Handles already-completed workflows gracefully
+
+## What's New
+
+### Latest Updates
+- **Smart Completion Events**: When all workflows are already completed on initial check, only `complete_success` or `complete_failure` sounds play
+- **Parallel Hook Execution**: Multiple hooks execute concurrently with proper synchronization
+- **Enhanced Debug Logging**: Detailed logging for configuration loading and hook execution (use `--debug` flag)
+- **Distinct Completion Sounds**: Different sounds for completion events vs individual workflow events
 
 ## Installation
 
@@ -118,6 +127,20 @@ octap --debug
    - Display URLs for failed workflows so you can quickly investigate
    - Exit automatically when all workflows complete
 
+### Usage Scenarios
+
+#### Scenario 1: Monitoring Active Workflows
+When you run octap right after pushing:
+- Individual workflows trigger `check_success` or `check_failure` sounds as they complete
+- When all workflows finish, `complete_success` or `complete_failure` sound plays
+- Both individual and completion sounds are heard
+
+#### Scenario 2: Checking Already-Completed Workflows
+When workflows finished before you run octap:
+- No individual `check_*` sounds play
+- Only the final `complete_success` or `complete_failure` sound plays
+- Quick feedback on overall result without redundant notifications
+
 ## Authentication
 
 octap uses GitHub OAuth Device Flow for authentication. On first run:
@@ -186,7 +209,13 @@ By default, octap uses a built-in OAuth Client ID for convenience. For productio
 
 ### Configuration File
 
-octap supports a YAML configuration file for customizing notifications and actions. By default, it looks for `~/.config/octap/config.yml`.
+octap supports a YAML configuration file for customizing sound notifications. By default, it looks for `~/.config/octap/config.yml`.
+
+The configuration system provides:
+- **Four distinct event types** for granular control
+- **OS-specific default sounds** that work out of the box
+- **Custom sound file support** for personalization
+- **Parallel action execution** for multiple hooks
 
 #### Generate Configuration Template
 
@@ -267,17 +296,20 @@ hooks:
 
 #### Hook Events
 
-| Event | Description |
-|-------|-------------|
-| `check_success` | Triggered when an individual workflow succeeds |
-| `check_failure` | Triggered when an individual workflow fails |
-| `complete_success` | Triggered when all workflows complete successfully |
-| `complete_failure` | Triggered when any workflow fails |
+| Event | Description | When Triggered |
+|-------|-------------|----------------|
+| `check_success` | Individual workflow success | When a workflow completes successfully during monitoring |
+| `check_failure` | Individual workflow failure | When a workflow fails during monitoring |
+| `complete_success` | All workflows successful | When all workflows complete successfully (including initial check) |
+| `complete_failure` | One or more workflows failed | When monitoring ends with failures (including initial check) |
+
+**Note**: When all workflows are already completed on the initial check, only `complete_success` or `complete_failure` events are triggered, not individual `check_*` events.
 
 #### Action Types
 
 **`sound` Action**:
-- `path`: Path to sound file (mp3, wav, aiff, m4a)
+- `path`: Path to sound file (mp3, wav, aiff, m4a, oga)
+- Different sounds can be configured for each event type
 
 ### Sound Notifications
 

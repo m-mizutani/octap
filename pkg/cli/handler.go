@@ -99,10 +99,23 @@ func RunMonitor(ctx context.Context, cmd *cli.Command) error {
 	} else {
 		// Try to load default config
 		configService := usecase.NewConfigService()
-		appConfig, err := configService.LoadDefault()
-		if err == nil && appConfig != nil {
-			notifier.SetConfig(appConfig)
-			logger.Debug("Loaded default configuration file")
+		defaultPath := configService.GetDefaultPath()
+		
+		// Check if default config file exists
+		if _, err := os.Stat(defaultPath); err != nil {
+			if os.IsNotExist(err) {
+				logger.Debug("Default configuration file not found",
+					slog.String("path", defaultPath),
+				)
+			}
+		} else {
+			appConfig, err := configService.LoadDefault()
+			if err == nil && appConfig != nil {
+				notifier.SetConfig(appConfig)
+				logger.Debug("Loaded default configuration file",
+					slog.String("path", defaultPath),
+				)
+			}
 		}
 	}
 

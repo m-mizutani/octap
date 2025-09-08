@@ -51,6 +51,11 @@ func (c *configService) LoadDefault() (*model.Config, error) {
 	return c.Load(c.defaultPath)
 }
 
+// GetDefaultPath returns the default configuration file path
+func (c *configService) GetDefaultPath() string {
+	return c.defaultPath
+}
+
 // GenerateTemplate generates a configuration template
 func (c *configService) GenerateTemplate() string {
 	successSoundPath, errorSoundPath := getDefaultSoundPaths()
