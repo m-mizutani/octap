@@ -23,28 +23,54 @@ func NewSoundAction() interfaces.ActionExecutor {
 func (s *soundAction) Execute(ctx context.Context, action model.Action, event model.WorkflowEvent) error {
 	logger := ctxlog.From(ctx)
 
+	logger.Debug("soundAction.Execute called",
+		slog.String("event_type", string(event.Type)),
+		slog.Any("action_data", action.Data),
+	)
+
 	// Convert to typed action
 	soundAction, err := action.ToSoundAction()
 	if err != nil {
+		logger.Error("Failed to parse sound action",
+			slog.String("error", err.Error()),
+		)
 		return goerr.Wrap(err, "failed to parse sound action")
 	}
 
 	expandedPath := expandPath(soundAction.Path)
+	logger.Debug("Playing sound",
+		slog.String("original_path", soundAction.Path),
+		slog.String("expanded_path", expandedPath),
+		slog.String("os", runtime.GOOS),
+	)
 
 	// Play sound based on OS
+	var playErr error
 	switch runtime.GOOS {
 	case "darwin":
-		return s.playMacOS(ctx, expandedPath)
+		playErr = s.playMacOS(ctx, expandedPath)
 	case "linux":
-		return s.playLinux(ctx, expandedPath)
+		playErr = s.playLinux(ctx, expandedPath)
 	case "windows":
-		return s.playWindows(ctx, expandedPath)
+		playErr = s.playWindows(ctx, expandedPath)
 	default:
 		logger.Warn("sound playback not supported on this OS",
 			slog.String("os", runtime.GOOS),
 		)
 		return nil
 	}
+
+	if playErr != nil {
+		logger.Error("Sound playback failed",
+			slog.String("path", expandedPath),
+			slog.String("error", playErr.Error()),
+		)
+	} else {
+		logger.Debug("Sound playback completed successfully",
+			slog.String("path", expandedPath),
+		)
+	}
+	return playErr
 }
 
 func (s *soundAction) playMacOS(ctx context.Context, path string) error {

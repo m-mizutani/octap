@@ -77,27 +77,42 @@ func (n *SoundNotifier) NotifyFailure(ctx context.Context, workflow *model.Workf
 }
 
 func (n *SoundNotifier) NotifyComplete(ctx context.Context, summary *model.Summary) error {
+	logger := ctxlog.From(ctx)
+	logger.Debug("NotifyComplete called",
+		slog.Int("total_runs", summary.TotalRuns),
+		slog.Int("success_count", summary.SuccessCount),
+		slog.Int("failure_count", summary.FailureCount),
+		slog.Bool("has_hook_executor", n.hookExecutor != nil),
+	)
+
 	// Execute hooks if configured
 	if n.hookExecutor != nil {
 		var eventType model.HookEvent
 		if summary.FailureCount > 0 {
 			eventType = model.HookCompleteFailure
+			logger.Debug("Using HookCompleteFailure event type")
 		} else {
 			eventType = model.HookCompleteSuccess
+			logger.Debug("Using HookCompleteSuccess event type")
 		}
 
 		event := model.WorkflowEvent{
 			Type: eventType,
 		}
-		if err := n.hookExecutor.Execute(context.Background(), event); err != nil {
-			logger := ctxlog.From(ctx)
+		logger.Debug("Calling hookExecutor.Execute",
+			slog.String("event_type", string(eventType)),
+		)
+		if err := n.hookExecutor.Execute(ctx, event); err != nil {
 			logger.Warn("failed to execute hooks",
 				slog.String("error", err.Error()),
 			)
+		} else {
+			logger.Debug("hookExecutor.Execute completed")
 		}
 		return nil
 	}
 
+	logger.Debug("No hookExecutor, using fallback default sound")
 	// Fallback to default sound
 	if summary.FailureCount > 0 {
 		return n.playSystemSound(ctx, false)
@@ -167,9 +182,19 @@ func (n *NoOpNotifier) NotifyFailure(ctx context.Context, workflow *model.Workfl
 }
 
 func (n *SoundNotifier) SetConfig(config *model.Config) {
+	logger := ctxlog.From(context.Background())
 	if config != nil {
 		n.config = config
 		n.hookExecutor = NewHookExecutor(config)
+		logger.Debug("SoundNotifier.SetConfig: hookExecutor created",
+			slog.Bool("has_config", config != nil),
+			slog.Int("check_success_count", len(config.Hooks.CheckSuccess)),
+			slog.Int("check_failure_count", len(config.Hooks.CheckFailure)),
+			slog.Int("complete_success_count", len(config.Hooks.CompleteSuccess)),
+			slog.Int("complete_failure_count", len(config.Hooks.CompleteFailure)),
+		)
+	} else {
+		logger.Debug("SoundNotifier.SetConfig: config is nil")
 	}
 }
 
