@@ -83,30 +83,26 @@ func (s *GitHubService) GetCurrentCommit(ctx context.Context, repoPath string) (
 }
 
 func (s *GitHubService) isCommitInBranch(repo *git.Repository, branchRef *plumbing.Reference, targetHash plumbing.Hash) bool {
-	// Get the commit object for the branch
-	commit, err := repo.CommitObject(branchRef.Hash())
+	branchCommit, err := repo.CommitObject(branchRef.Hash())
 	if err != nil {
 		return false
 	}
 
-	// Walk through the commit history
-	iter := commit.Parents()
-	for {
-		parent, err := iter.Next()
-		if err != nil {
-			break
-		}
-		if parent.Hash == targetHash {
-			return true
-		}
-		// Check if target is in parent's history
-		if s.isCommitInBranch(repo, plumbing.NewHashReference(plumbing.ReferenceName(""), parent.Hash), targetHash) {
-			return true
-		}
+	// Check if the branch commit itself is the target
+	if branchCommit.Hash == targetHash {
+		return true
 	}
 
-	// Check if the branch commit itself is the target
-	return commit.Hash == targetHash
+	targetCommit, err := repo.CommitObject(targetHash)
+	if err != nil {
+		return false
+	}
+
+	isAncestor, err := targetCommit.IsAncestor(branchCommit)
+	if err != nil {
+		return false
+	}
+	return isAncestor
 }
 
 func (s *GitHubService) GetRepositoryInfo(ctx context.Context, repoPath string) (*model.Repository, error) {
