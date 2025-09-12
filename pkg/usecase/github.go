@@ -3,9 +3,11 @@ package usecase
 import (
 	"context"
 	"log/slog"
-	"os/exec"
 	"strings"
 
+	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/storer"
 	"github.com/google/go-github/v74/github"
 	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/goerr/v2"
@@ -24,21 +26,53 @@ func NewGitHubService(authService interfaces.AuthService) interfaces.GitHubServi
 	}
 }
 
+func (s *GitHubService) openRepository(path string) (*git.Repository, error) {
+	repo, err := git.PlainOpen(path)
+	if err != nil {
+		return nil, domain.ErrRepository.Wrap(err)
+	}
+	return repo, nil
+}
+
 func (s *GitHubService) GetCurrentCommit(ctx context.Context, repoPath string) (string, error) {
 	logger := ctxlog.From(ctx)
-	cmd := exec.CommandContext(ctx, "git", "rev-parse", "HEAD")
-	cmd.Dir = repoPath
-	output, err := cmd.Output()
+
+	repo, err := s.openRepository(repoPath)
+	if err != nil {
+		return "", err
+	}
+
+	// Get HEAD reference
+	head, err := repo.Head()
 	if err != nil {
 		return "", domain.ErrRepository.Wrap(err)
 	}
-	commitSHA := strings.TrimSpace(string(output))
+	commitSHA := head.Hash().String()
 
 	// Check if commit is pushed to remote
-	checkCmd := exec.CommandContext(ctx, "git", "branch", "-r", "--contains", commitSHA) // #nosec G204 - commitSHA is validated and safe
-	checkCmd.Dir = repoPath
-	remoteOutput, err := checkCmd.Output()
-	if err != nil || len(remoteOutput) == 0 {
+	remoteRefs, err := repo.References()
+	if err != nil {
+		return "", domain.ErrRepository.Wrap(err)
+	}
+
+	found := false
+	err = remoteRefs.ForEach(func(ref *plumbing.Reference) error {
+		// Check if this is a remote branch reference
+		if ref.Name().IsRemote() {
+			// Get the commit hash of the remote branch
+			if ref.Hash() == head.Hash() || s.isCommitInBranch(repo, ref, head.Hash()) {
+				found = true
+				return storer.ErrStop // Stop iteration
+			}
+		}
+		return nil
+	})
+
+	if err != nil && err != storer.ErrStop {
+		return "", domain.ErrRepository.Wrap(err)
+	}
+
+	if !found {
 		logger.Warn("Commit not found in remote branches",
 			slog.String("sha", commitSHA[:8]),
 		)
@@ -48,15 +82,52 @@ func (s *GitHubService) GetCurrentCommit(ctx context.Context, repoPath string) (
 	return commitSHA, nil
 }
 
+func (s *GitHubService) isCommitInBranch(repo *git.Repository, branchRef *plumbing.Reference, targetHash plumbing.Hash) bool {
+	// Get the commit object for the branch
+	commit, err := repo.CommitObject(branchRef.Hash())
+	if err != nil {
+		return false
+	}
+
+	// Walk through the commit history
+	iter := commit.Parents()
+	for {
+		parent, err := iter.Next()
+		if err != nil {
+			break
+		}
+		if parent.Hash == targetHash {
+			return true
+		}
+		// Check if target is in parent's history
+		if s.isCommitInBranch(repo, plumbing.NewHashReference(plumbing.ReferenceName(""), parent.Hash), targetHash) {
+			return true
+		}
+	}
+
+	// Check if the branch commit itself is the target
+	return commit.Hash == targetHash
+}
+
 func (s *GitHubService) GetRepositoryInfo(ctx context.Context, repoPath string) (*model.Repository, error) {
-	cmd := exec.CommandContext(ctx, "git", "remote", "get-url", "origin")
-	cmd.Dir = repoPath
-	output, err := cmd.Output()
+	repo, err := s.openRepository(repoPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get origin remote
+	remote, err := repo.Remote("origin")
 	if err != nil {
 		return nil, domain.ErrRepository.Wrap(err)
 	}
 
-	remoteURL := strings.TrimSpace(string(output))
+	// Get the remote URL
+	config := remote.Config()
+	if len(config.URLs) == 0 {
+		return nil, domain.ErrRepository.Wrap(goerr.New("no URLs found for origin remote"))
+	}
+
+	remoteURL := config.URLs[0]
 	owner, name := parseGitHubURL(remoteURL)
 	if owner == "" || name == "" {
 		return nil, domain.ErrRepository.Wrap(goerr.New("failed to parse GitHub URL: " + remoteURL))
