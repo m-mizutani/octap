@@ -9,7 +9,7 @@ require (
 	github.com/m-mizutani/ctxlog v0.2.0
 	github.com/m-mizutani/goerr/v2 v2.0.0-beta.4
 	github.com/m-mizutani/gt v0.1.0
-	github.com/urfave/cli/v3 v3.4.1
+	github.com/urfave/cli/v3 v3.6.1
 	go.uber.org/goleak v1.3.0
 	golang.org/x/oauth2 v0.31.0
 	gopkg.in/yaml.v3 v3.0.1
